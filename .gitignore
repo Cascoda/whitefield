@@ -12,3 +12,7 @@ compile_commands.json
 tmp/
 ubuntu-bionic-*.log
 .vagrant
+.cproject
+.project
+.settings/
+canvas/bottle.pyc
