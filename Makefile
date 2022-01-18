@@ -58,9 +58,10 @@ openthread:
 		cd $(STACKLINE_OPENTHREAD); \
 		if [ ! -d output ]; then \
 			echo "Bootstrapping OpenThread...";\
+			./script/bootstrap; \
 			./bootstrap; \
 		fi; \
-		$(MAKE) -f examples/Makefile-whitefield ALL_LOGS=1; \
+		$(MAKE) -f examples/Makefile-simulation OTNS=1; \
 	fi
 
 openthread_clean: 

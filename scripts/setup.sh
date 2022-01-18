@@ -13,7 +13,7 @@ STACKLINE_CONTIKI=thirdparty/contiki
 CTKNG_EN=0
 STACKLINE_CONTIKING=thirdparty/contiki-ng
 
-OT_EN=0
+OT_EN=1
 STACKLINE_OPENTHREAD=thirdparty/openthread
 
 NS=1
@@ -148,7 +148,14 @@ git_submodule_dload()
 {
     [[ $1 -eq 1 ]] && echo "Submodule init [$2] ..." && \
         git submodule update --progress --init -- $2 && \
-        cd $2 && git checkout master && cd -
+        cd $2 && \
+	if [[ "$2" == "$STACKLINE_OPENTHREAD" ]]
+	then
+		git checkout sim-radio-model
+	else
+		git checkout master
+	fi && \
+       	cd -
 }
 
 git_download()
