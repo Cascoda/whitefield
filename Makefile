@@ -56,16 +56,18 @@ contiking_clean:
 openthread:
 	@if [ -d $(STACKLINE_OPENTHREAD) ]; then \
 		cd $(STACKLINE_OPENTHREAD); \
-		if [ ! -d output ]; then \
+		if [ ! -d build ]; then \
 			echo "Bootstrapping OpenThread...";\
 			./script/bootstrap; \
 			./bootstrap; \
 		fi; \
-		$(MAKE) -f examples/Makefile-simulation OTNS=1; \
+		./script/cmake-build simulation -DOT_PLATFORM=simulation -DOT_OTNS=ON -DOT_SIMULATION_VIRTUAL_TIME=ON -DOT_SIMULATION_VIRTUAL_TIME_UART=ON \
+                                         -DOT_SIMULATION_MAX_NETWORK_SIZE=999 -DOT_COMMISSIONER=ON -DOT_JOINER=ON -DOT_BORDER_ROUTER=ON -DOT_SERVICE=ON -DOT_COAP=ON \
+                                         -DOT_FULL_LOGS=OFF ; \
 	fi
 
 openthread_clean: 
-	cd $(STACKLINE_OPENTHREAD); $(MAKE) -f examples/Makefile-whitefield clean
+	cd $(STACKLINE_OPENTHREAD); ./script/test clean
 
 ns3:
 	$(MAKE) -C $(AIRLINE_NS3)
