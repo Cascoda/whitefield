@@ -33,8 +33,10 @@
 
 #include <commline.h>
 #include <cl_usock.h>
+#include <ot_event_helpers.h>
 
 #define MAX_CHILD_PROCESSES 2000
+#define OT_MAX_MSG_SIZE OT_EVENT_METADATA_SIZE + OT_EVENT_DATA_MAX_SIZE
 
 int g_usock_fd[MAX_CL_LINE] = { -1 };
 int g_def_line              = -1;
@@ -179,9 +181,11 @@ int udp_sock_init(const uint16_t nodeId)
 	return SUCCESS;
 }
 
-int udp_sock_sendto(const uint16_t nodeId, msg_buf_t *mbuf, uint16_t len)
+int udp_sock_sendto(const uint16_t nodeId, struct Event *evt)
 {
+	char mbuf[OT_MAX_MSG_SIZE];
     ssize_t            rval;
+    size_t mbuf_len;
     struct sockaddr_in sockaddr;
     int sockfd = g_udpsock_fd[nodeId];
 	uint16_t ot_nodeid = nodeId + 1;
@@ -191,7 +195,10 @@ int udp_sock_sendto(const uint16_t nodeId, msg_buf_t *mbuf, uint16_t len)
     sockaddr.sin_port = htons((uint16_t)(9000 + ot_nodeid));
     sockaddr.sin_addr.s_addr = INADDR_ANY;
 
-    rval = sendto(sockfd, (void *)mbuf, len, 0, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+    serializeEvent(mbuf, evt);
+    mbuf_len = sizeof(mbuf) - sizeof(evt->mData) + evt->mDataLength;
+
+    rval = sendto(sockfd, (void *)mbuf, mbuf_len, 0, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
     if (rval < 0)
     {
         ERROR("UDP SEND FAILED FOR OT NODE ID %d\n", ot_nodeid);

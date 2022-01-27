@@ -66,7 +66,9 @@ int cl_sendto_q(const long mtype, msg_buf_t *mbuf, uint16_t len)
     int line = GET_LINE(mtype);
 
     if(line == STACKLINE){
-    	return OT_SENDTO(GET_ID(mtype), mbuf, len);
+    	struct Event evt;
+    	wfBufToOtEvent(&evt, mbuf);
+    	return OT_SENDTO(GET_ID(mtype), &evt);
     } else {
     	return CL_SENDTO(mtype, mbuf, len);
     }

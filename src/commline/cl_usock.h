@@ -18,6 +18,8 @@
  * @}
  */
 
+#include "ot_event_helpers.h"
+
 #ifndef _CL_USOCK_H_
 #define _CL_USOCK_H_
 
@@ -29,7 +31,7 @@ int  usock_get_descriptor(const long mtype);
 
 // The following UDP functions are used for communicating with OpenThread nodes
 int udp_sock_init(const uint16_t nodeId);
-int udp_sock_sendto(const uint16_t nodeId, msg_buf_t *mbuf, uint16_t len);
+int udp_sock_sendto(const uint16_t nodeId, struct Event *evt);
 
 #define CL_INIT           usock_init
 #define CL_CLEANUP        usock_cleanup
