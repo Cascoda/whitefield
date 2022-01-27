@@ -62,7 +62,14 @@ int cl_sendto_q(const long mtype, msg_buf_t *mbuf, uint16_t len)
         ERROR("sendto invalid parameters passed buf:%p, buflen:%d\n", mbuf, len);
         return FAILURE;
     }
-    return CL_SENDTO(mtype, mbuf, len);
+
+    int line = GET_LINE(mtype);
+
+    if(line == STACKLINE){
+    	return OT_SENDTO(GET_ID(mtype), mbuf, len);
+    } else {
+    	return CL_SENDTO(mtype, mbuf, len);
+    }
 }
 
 int cl_recvfrom_q(const long mtype, msg_buf_t *mbuf, uint16_t len, uint16_t flags)

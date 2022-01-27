@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <errno.h>
@@ -33,8 +34,11 @@
 #include <commline.h>
 #include <cl_usock.h>
 
+#define MAX_CHILD_PROCESSES 2000
+
 int g_usock_fd[MAX_CL_LINE] = { -1 };
 int g_def_line              = -1;
+int g_udpsock_fd[MAX_CHILD_PROCESSES]; //Stores UDP socket fds for communication with OT nodes.
 
 socklen_t usock_setabsaddr(const long mtype, struct sockaddr_un *addr)
 {
@@ -151,7 +155,8 @@ int usock_get_descriptor(const long mtype)
     return g_usock_fd[line];
 }
 
-int udp_sock_init(const uint16_t nodeId){
+int udp_sock_init(const uint16_t nodeId)
+{
     struct sockaddr_in sockaddr;
     int sockfd;
     uint16_t ot_nodeid = nodeId + 1;
@@ -163,14 +168,36 @@ int udp_sock_init(const uint16_t nodeId){
     sockaddr.sin_addr.s_addr = INADDR_ANY;
 
     sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
     if (sockfd == -1)
     {
         ERROR("UDP SOCKET INIT FAILED FOR OT NODE ID %d\n", ot_nodeid);
         return FAILURE;
     }
 
+    g_udpsock_fd[nodeId] = sockfd;
     INFO("UDP SOCKET INITIALIZED FOR OT NODE ID %d\n", ot_nodeid);
+	return SUCCESS;
+}
 
+int udp_sock_sendto(const uint16_t nodeId, msg_buf_t *mbuf, uint16_t len)
+{
+    ssize_t            rval;
+    struct sockaddr_in sockaddr;
+    int sockfd = g_udpsock_fd[nodeId];
+	uint16_t ot_nodeid = nodeId + 1;
+
+    memset(&sockaddr, 0, sizeof(sockaddr));
+    sockaddr.sin_family = AF_INET;
+    sockaddr.sin_port = htons((uint16_t)(9000 + ot_nodeid));
+    sockaddr.sin_addr.s_addr = INADDR_ANY;
+
+    rval = sendto(sockfd, (void *)mbuf, len, 0, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+    if (rval < 0)
+    {
+        ERROR("UDP SEND FAILED FOR OT NODE ID %d\n", ot_nodeid);
+        return FAILURE;
+    }
+
+	INFO("UDP SEND SUCCESSFUL FOR OT NODE ID %d\n", ot_nodeid);
 	return SUCCESS;
 }

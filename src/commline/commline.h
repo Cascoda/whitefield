@@ -110,6 +110,7 @@ enum {
 
 #define MTYPE(LINE, ID) (((LINE) << 16) | (ID))
 #define GET_LINE(MT)    (MT >> 16)
+#define GET_ID(MT)      (MT & 0xffff)
 
 #define ms2hh (3600000)
 #define ms2mm (60000)
