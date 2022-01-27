@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <sys/un.h>
 #include <errno.h>
 
@@ -48,8 +49,6 @@ socklen_t usock_setabsaddr(const long mtype, struct sockaddr_un *addr)
 
 int usock_init(const long my_mtype, const uint8_t flags)
 {
-    socklen_t          slen;
-    struct sockaddr_un addr;
     int                line = GET_LINE(my_mtype);
 
     if (!IN_RANGE(line, 1, MAX_CL_LINE)) {
@@ -57,24 +56,36 @@ int usock_init(const long my_mtype, const uint8_t flags)
         return FAILURE;
     }
 
-    g_usock_fd[line] = socket(AF_UNIX, SOCK_DGRAM, 0);
-    if (g_usock_fd[line] < 0) {
-        ERROR("socket failure errno=%d\n", errno);
-        return FAILURE;
-    }
+//    if(line == STACKLINE){ // Use UDP communication with OT nodes.
+//    	INFO("STACKLINE SOCK INIT\n");
+//    	return udp_sock_init();
+//    }
+//    else
+//    {
+    	INFO("NOT STACKLINE: LINE %d\n", line);
+    	socklen_t          slen;
+    	struct sockaddr_un addr;
 
-    slen = usock_setabsaddr(my_mtype, &addr);
-    INFO("USOCK binding to [%s]\n", &addr.sun_path[1]);
+    	g_usock_fd[line] = socket(AF_UNIX, SOCK_DGRAM, 0);
+    	if (g_usock_fd[line] < 0) {
+    	    ERROR("socket failure errno=%d\n", errno);
+    	    return FAILURE;
+    	}
 
-    if (bind(g_usock_fd[line], (struct sockaddr *)&addr, slen)) {
-        CLOSE(g_usock_fd[line]);
-        ERROR("bind failed errno=%d\n", errno);
-        return FAILURE;
-    }
-    if (g_def_line < 0) {
-        g_def_line = line;
-    }
-    return SUCCESS;
+    	slen = usock_setabsaddr(my_mtype, &addr);
+    	INFO("USOCK binding to [%s]\n", &addr.sun_path[1]);
+
+    	if (bind(g_usock_fd[line], (struct sockaddr *)&addr, slen)) {
+    	    CLOSE(g_usock_fd[line]);
+    	    ERROR("bind failed errno=%d\n", errno);
+    	    return FAILURE;
+    	}
+    	if (g_def_line < 0) {
+    	    g_def_line = line;
+    	}
+    	return SUCCESS;
+//    }
+
 }
 
 void usock_cleanup(void)
@@ -138,4 +149,28 @@ int usock_get_descriptor(const long mtype)
     }
 
     return g_usock_fd[line];
+}
+
+int udp_sock_init(const uint16_t nodeId){
+    struct sockaddr_in sockaddr;
+    int sockfd;
+    uint16_t ot_nodeid = nodeId + 1;
+
+
+    memset(&sockaddr, 0, sizeof(sockaddr));
+    sockaddr.sin_family = AF_INET;
+    sockaddr.sin_port        = htons((uint16_t)(9000 + ot_nodeid));
+    sockaddr.sin_addr.s_addr = INADDR_ANY;
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+    if (sockfd == -1)
+    {
+        ERROR("UDP SOCKET INIT FAILED FOR OT NODE ID %d\n", ot_nodeid);
+        return FAILURE;
+    }
+
+    INFO("UDP SOCKET INITIALIZED FOR OT NODE ID %d\n", ot_nodeid);
+
+	return SUCCESS;
 }

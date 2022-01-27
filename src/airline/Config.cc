@@ -140,6 +140,7 @@ void Config::spawnStackline(const uint16_t nodeID)
 	if(SUCCESS != cl_sendto_q(MTYPE(FORKER, CL_MGR_ID), mbuf, len + sizeof(msg_buf_t))) {
 		ERROR("Failure sending command to forker\n");
 	}
+	//HERE... Maybe send a message to the node? Or figure out what needs to be sending messages to the node (is it the forker?? idk... Or somewhere withing Commline? idk...)
 	if(nodeID == getNumberOfNodes()-1) {
 		INFO("All nodes started.\n");
 	}

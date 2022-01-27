@@ -37,6 +37,11 @@ int cl_init(const long my_mtype, const uint8_t flags)
     return CL_INIT(my_mtype, flags);
 }
 
+int ot_init(const uint16_t nodeId)
+{
+	return OT_INIT(nodeId);
+}
+
 int cl_bind(const long my_mtype)
 {
 #ifdef USE_UNIX_SOCKETS

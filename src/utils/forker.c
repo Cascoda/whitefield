@@ -135,6 +135,7 @@ int fork_n_exec(uint16_t nodeid, char *buf)
         pty_add_fd(nodeid, g_child_info[nodeid].master, 1);
     }
 #endif
+    ot_init(nodeid);
     return SUCCESS;
 }
 

@@ -41,6 +41,7 @@ extern "C" {
 #define CL_ATTACHQ (1 << 1) //Used by stackline
 
 int  cl_init(const long my_mtype, const uint8_t flags);
+int  ot_init(const uint16_t nodeId); //Used for OT nodes
 int  cl_bind(const long my_mtype);
 void cl_cleanup(void);
 
