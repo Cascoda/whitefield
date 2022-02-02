@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -30,12 +31,12 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <errno.h>
+//#include <poll.h>
 
 #include <commline.h>
 #include <cl_usock.h>
 #include <ot_event_helpers.h>
 
-#define MAX_CHILD_PROCESSES 2000
 #define OT_MAX_MSG_SIZE OT_EVENT_METADATA_SIZE + OT_EVENT_DATA_MAX_SIZE
 
 int g_usock_fd[MAX_CL_LINE] = { -1 };
@@ -62,35 +63,28 @@ int usock_init(const long my_mtype, const uint8_t flags)
         return FAILURE;
     }
 
-//    if(line == STACKLINE){ // Use UDP communication with OT nodes.
-//    	INFO("STACKLINE SOCK INIT\n");
-//    	return udp_sock_init();
-//    }
-//    else
-//    {
-    	INFO("NOT STACKLINE: LINE %d\n", line);
-    	socklen_t          slen;
-    	struct sockaddr_un addr;
+	INFO("NOT STACKLINE: LINE %d\n", line);
+	socklen_t          slen;
+	struct sockaddr_un addr;
 
-    	g_usock_fd[line] = socket(AF_UNIX, SOCK_DGRAM, 0);
-    	if (g_usock_fd[line] < 0) {
-    	    ERROR("socket failure errno=%d\n", errno);
-    	    return FAILURE;
-    	}
+	g_usock_fd[line] = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (g_usock_fd[line] < 0) {
+	    ERROR("socket failure errno=%d\n", errno);
+	    return FAILURE;
+	}
 
-    	slen = usock_setabsaddr(my_mtype, &addr);
-    	INFO("USOCK binding to [%s]\n", &addr.sun_path[1]);
+	slen = usock_setabsaddr(my_mtype, &addr);
+	INFO("USOCK binding to [%s]\n", &addr.sun_path[1]);
 
-    	if (bind(g_usock_fd[line], (struct sockaddr *)&addr, slen)) {
-    	    CLOSE(g_usock_fd[line]);
-    	    ERROR("bind failed errno=%d\n", errno);
-    	    return FAILURE;
-    	}
-    	if (g_def_line < 0) {
-    	    g_def_line = line;
-    	}
-    	return SUCCESS;
-//    }
+	if (bind(g_usock_fd[line], (struct sockaddr *)&addr, slen)) {
+	    CLOSE(g_usock_fd[line]);
+	    ERROR("bind failed errno=%d\n", errno);
+	    return FAILURE;
+	}
+	if (g_def_line < 0) {
+	    g_def_line = line;
+	}
+	return SUCCESS;
 
 }
 
@@ -159,20 +153,13 @@ int usock_get_descriptor(const long mtype)
 
 int udp_sock_init(const uint16_t nodeId)
 {
-    struct sockaddr_in sockaddr;
     int sockfd;
     uint16_t ot_nodeid = nodeId + 1;
-
-
-    memset(&sockaddr, 0, sizeof(sockaddr));
-    sockaddr.sin_family = AF_INET;
-    sockaddr.sin_port        = htons((uint16_t)(9000 + ot_nodeid));
-    sockaddr.sin_addr.s_addr = INADDR_ANY;
 
     sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sockfd == -1)
     {
-        ERROR("UDP SOCKET INIT FAILED FOR OT NODE ID %d\n", ot_nodeid);
+        ERROR("UDP SOCKET CREATION FAILED FOR OT NODE ID %d\n", ot_nodeid);
         return FAILURE;
     }
 
@@ -183,6 +170,7 @@ int udp_sock_init(const uint16_t nodeId)
 
 int udp_sock_sendto(const uint16_t nodeId, struct Event *evt)
 {
+	INFO("udp_sock_sendto called\n");
 	char mbuf[OT_MAX_MSG_SIZE];
     ssize_t            rval;
     size_t mbuf_len;
@@ -207,4 +195,42 @@ int udp_sock_sendto(const uint16_t nodeId, struct Event *evt)
 
 	INFO("UDP SEND SUCCESSFUL FOR OT NODE ID %d\n", ot_nodeid);
 	return SUCCESS;
+}
+
+int udp_sock_recvfrom(const uint16_t nodeId, struct Event *evt)
+{
+	char mbuf[OT_MAX_MSG_SIZE];
+    int rval;
+    int sockfd = g_udpsock_fd[nodeId];
+	uint16_t ot_nodeid = nodeId + 1;
+
+	INFO("BEFORE!!!!\n");
+    rval = recvfrom(sockfd, (void *)mbuf, sizeof(mbuf), 0, NULL, NULL);
+    INFO("AFTER!!!!\n");
+    if(rval <= 0)
+    {
+    	ERROR("UDP RECV FAILED FROM OT NODE ID %d\n", ot_nodeid);
+    	return FAILURE;
+    }
+    else if (rval < OT_EVENT_METADATA_SIZE)
+    {
+        ERROR("UDP RECV NOT ENOUGH BYTES FROM OT NODE ID %d\n", ot_nodeid);
+        return FAILURE;
+    }
+
+    deserializeMessage(evt, mbuf);
+    fprintf(stderr, "evt->mDelay: %"PRIu64"\n", evt->mDelay);
+    fprintf(stderr, "evt->mEventType: %d\n", evt->mEventType);
+    fprintf(stderr, "evt->mParam1: %d\n", evt->mParam1);
+    fprintf(stderr, "evt->mParam2: %d\n", evt->mParam2);
+    fprintf(stderr, "evt->mDataLength: %d\n", evt->mDataLength);
+    fprintf(stderr, "evt->mData: 0x");
+    for(uint8_t i = 0; i < evt->mDataLength; i++)
+    {
+    	fprintf(stderr, "%x", evt->mData[i]);
+    }
+    fprintf(stderr, "\n");
+
+	INFO("UDP RECV SUCCESSFUL FOR OT NODE ID %d\n", ot_nodeid);
+	return rval;
 }

@@ -2,7 +2,7 @@
 #define _OT_EVENT_HELPERS_H
 
 #include <stdint.h>
-#include <commline.h>
+#include "commline.h"
 
 #define OT_TOOL_PACKED_BEGIN
 #define OT_TOOL_PACKED_END __attribute__((packed))
@@ -20,7 +20,7 @@ enum
 
 enum
 {
-	OT_EVENT_METADATA_SIZE = 13, // mDelay, mEventType, mParam1, mParam2, mDataLength
+	OT_EVENT_METADATA_SIZE = 17, // mDelay, mNodeId, mEventType, mParam1, mParam2, mDataLength
 	OT_EVENT_DATA_MAX_SIZE = 1024, //mData
 };
 
@@ -29,17 +29,20 @@ struct Event
 {
 	uint64_t mTimestamp; //Not sent, only used internally
     uint64_t mDelay;
+    uint32_t mNodeId;
     uint8_t  mEventType;
     int8_t   mParam1;
     int8_t   mParam2;
-    int      mNodeId; //Not sent, only used internally
     uint16_t mDataLength;
     uint8_t  mData[OT_EVENT_DATA_MAX_SIZE];
     struct sockaddr_in *mSrcAddr; //Not sent, only used internally
 } OT_TOOL_PACKED_END;
 
 // Translate from msg_buf_t to Event type.
-void wfBufToOtEvent(struct Event *evt_out, const msg_buf_t *mbuf_in);
+void wfBufToOtEvent(struct Event *evt_out, const msg_buf_t *mbuf_in, uint32_t dst_id);
+
+// Translate from Event to msg_buf_t.
+void OtEventToWfBuf(const msg_buf_t *mbuf_out, struct Event *evt_in);
 
 // Serialize OT event for sending over UDP.
 void serializeEvent(char *msg_out, const struct Event *evt_in);

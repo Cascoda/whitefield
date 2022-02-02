@@ -3,7 +3,6 @@
 
 #include <sys/un.h>
 
-#define MAX_CHILD_PROCESS 2000
 typedef struct _child_info_ {
     pid_t              pid;
     int                master;
@@ -19,5 +18,8 @@ int uds_open(int nodeid);
 
 // monitor.c exported functions
 int start_monitor_thread(void);
+
+// ot_handler.c exported functions
+int start_radio_thread(void);
 
 #endif // _FORKER_COMMON_H_

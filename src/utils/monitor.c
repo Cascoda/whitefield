@@ -120,6 +120,7 @@ void *monitor_thread(void *arg)
         if (n <= 0) {
             continue;
         }
+        INFO("Received from gMonitorFD\n");
         cmd[n] = 0;
         n      = fwd_cmd_on_commline(cmd, n, rsp, sizeof(rsp));
         if (n <= 0) {

@@ -23,6 +23,8 @@
 #ifndef _CL_USOCK_H_
 #define _CL_USOCK_H_
 
+#define MAX_CHILD_PROCESSES 1024
+
 int  usock_init(const long my_mtype, const uint8_t flags);
 void usock_cleanup(void);
 int  usock_recvfrom(const long mtype, msg_buf_t *mbuf, uint16_t len, uint16_t flags);
@@ -32,6 +34,7 @@ int  usock_get_descriptor(const long mtype);
 // The following UDP functions are used for communicating with OpenThread nodes
 int udp_sock_init(const uint16_t nodeId);
 int udp_sock_sendto(const uint16_t nodeId, struct Event *evt);
+int udp_sock_recvfrom(const uint16_t nodeId, struct Event *evt);
 
 #define CL_INIT           usock_init
 #define CL_CLEANUP        usock_cleanup
@@ -40,5 +43,6 @@ int udp_sock_sendto(const uint16_t nodeId, struct Event *evt);
 #define CL_GET_DESCRIPTOR usock_get_descriptor
 #define OT_INIT 		  udp_sock_init
 #define OT_SENDTO         udp_sock_sendto
+#define OT_RECVFROM       udp_sock_recvfrom
 
 #endif //_CL_MSGQ_H_

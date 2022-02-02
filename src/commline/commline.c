@@ -58,6 +58,9 @@ void cl_cleanup(void)
 
 int cl_sendto_q(const long mtype, msg_buf_t *mbuf, uint16_t len)
 {
+	//FOR TESTING PURPOSES
+	static uint8_t id = 0;
+
     if (!mbuf || !len) {
         ERROR("sendto invalid parameters passed buf:%p, buflen:%d\n", mbuf, len);
         return FAILURE;
@@ -67,8 +70,13 @@ int cl_sendto_q(const long mtype, msg_buf_t *mbuf, uint16_t len)
 
     if(line == STACKLINE){
     	struct Event evt;
-    	wfBufToOtEvent(&evt, mbuf);
-    	return OT_SENDTO(GET_ID(mtype), &evt);
+    	id = (id == 0 ? 1 : 0);
+    	fprintf(stderr, "id = %d\n", id);
+//    	wfBufToOtEvent(&evt, mbuf, GET_ID(mtype));
+//    	return OT_SENDTO(GET_ID(mtype), &evt);
+
+    	wfBufToOtEvent(&evt, mbuf, id);
+    	return OT_SENDTO(id, &evt);
     } else {
     	return CL_SENDTO(mtype, mbuf, len);
     }
@@ -80,6 +88,7 @@ int cl_recvfrom_q(const long mtype, msg_buf_t *mbuf, uint16_t len, uint16_t flag
         ERROR("invalid parameters passed buf:%p, buflen:%d\n", mbuf, len);
         return FAILURE;
     }
+
     memset(mbuf, 0, sizeof(msg_buf_t));
     return CL_RECVFROM(mtype, mbuf, len, flags);
 }

@@ -8,7 +8,7 @@ CFLAGS+=-g
 endif
 
 UTIL=src/utils
-SRC=$(UTIL)/forker.c $(UTIL)/monitor.c $(UTIL)/pty_handler.c
+SRC=$(UTIL)/forker.c $(UTIL)/monitor.c $(UTIL)/pty_handler.c $(UTIL)/ot_handler.c
 FORKER=$(BINDIR)/wf_forker
 UDP_CMD=$(BINDIR)/udp_cmd
 

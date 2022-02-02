@@ -35,9 +35,10 @@
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include "commline/commline.h"
+#include "commline/cl_usock.h"
 #include "utils/forker_common.h"
 
-child_psinfo_t g_child_info[MAX_CHILD_PROCESS];
+child_psinfo_t g_child_info[MAX_CHILD_PROCESSES];
 
 void redirect_stdout_to_log(int nodeid)
 {
@@ -142,7 +143,7 @@ int fork_n_exec(uint16_t nodeid, char *buf)
 void killall_childprocess(void)
 {
     int i;
-    for (i = 0; i < MAX_CHILD_PROCESS; i++) {
+    for (i = 0; i < MAX_CHILD_PROCESSES; i++) {
         if (g_child_info[i].pid <= 0)
             continue;
         kill(g_child_info[i].pid, SIGINT);
@@ -179,13 +180,17 @@ int main(void)
         ERROR("forker: failure to cl_bind()\n");
         return 1;
     }
-    if (SUCCESS != start_pty_thread()) {
-        ERROR("start_monitor_thread failed... exiting process!!\n");
-        return 1;
-    }
+//    if (SUCCESS != start_pty_thread()) {
+//        ERROR("start_monitor_thread failed... exiting process!!\n");
+//        return 1;
+//    }
     if (SUCCESS != start_monitor_thread()) {
         ERROR("start_monitor_thread failed... exiting process!!\n");
         return 1;
+    }
+    if(SUCCESS != start_radio_thread()) {
+    	ERROR("start_radio_thread failed... exiting process!!\n");
+    	return 1;
     }
     wait_on_q();
     return 0;
