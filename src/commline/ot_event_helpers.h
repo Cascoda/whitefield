@@ -7,7 +7,9 @@
 #define OT_TOOL_PACKED_BEGIN
 #define OT_TOOL_PACKED_END __attribute__((packed))
 
-enum
+extern int numOfAliveNodes;
+
+enum EventTypes
 {
     OT_EVENT_TYPE_ALARM_FIRED            = 0,
     OT_EVENT_TYPE_RADIO_FRAME_TO_NODE    = 1,
@@ -35,19 +37,33 @@ struct Event
     int8_t   mParam2;
     uint16_t mDataLength;
     uint8_t  mData[OT_EVENT_DATA_MAX_SIZE];
-    struct sockaddr_in *mSrcAddr; //Not sent, only used internally
 } OT_TOOL_PACKED_END;
+
+// Print event.
+void printEvent(const struct Event *evt);
 
 // Translate from msg_buf_t to Event type.
 void wfBufToOtEvent(struct Event *evt_out, const msg_buf_t *mbuf_in, uint32_t dst_id);
 
 // Translate from Event to msg_buf_t.
-void OtEventToWfBuf(const msg_buf_t *mbuf_out, struct Event *evt_in);
+void OtEventToWfBuf(msg_buf_t *mbuf_out, const struct Event *evt_in);
 
 // Serialize OT event for sending over UDP.
 void serializeEvent(char *msg_out, const struct Event *evt_in);
 
 // Deserialize buffer received from OT node over UDP and extract into Event struct.
 void deserializeMessage(struct Event *evt_out, const char *msg_in);
+
+void setAliveNode();
+void setAsleepNode();
+
+void setNodeCurTime(uint32_t nodeId, uint64_t time);
+uint64_t getNodeCurTime(uint32_t nodeId);
+
+// Handles events received from OT nodes.
+void handleReceivedEvent(struct Event *evt);
+
+//// Process a received event.
+//void processEvent(const struct Event *evt);
 
 #endif //_OT_EVENT_HELPERS_H

@@ -174,8 +174,11 @@ int AirlineManager::cmd_set_node_position(uint16_t id, char *buf, int buflen)
 	return snprintf(buf, buflen, "SUCCESS");
 }
 
+//DO I WANT TO REPLACE THIS FUNCTION AND HAVE IT DEAL WITH EVENTS INSTEAD?
+//OR KEEP IT SO THAT IT DEALS WITH MBUF, BUT STILL CHANGE LOGIC INSIDE HERE...
 void AirlineManager::msgrecvCallback(msg_buf_t *mbuf)
 {
+	INFO("msgrecvCallback got called!\n");
 	NodeContainer const & n = NodeContainer::GetGlobal (); 
 	int numNodes = stoi(CFG("numOfNodes"));
 
@@ -258,7 +261,7 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 		GlobalValue::Bind ("ChecksumEnabled", 
             BooleanValue (CFG_INT("macChecksumEnabled", 1)));
 		GlobalValue::Bind ("SimulatorImplementationType", 
-		   StringValue ("ns3::RealtimeSimulatorImpl"));
+		   StringValue ("ns3::DefaultSimulatorImpl"));
 
 		wf::Macstats::clear();
 
@@ -293,20 +296,22 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 
 void AirlineManager::ScheduleCommlineRX(void)
 {
-	m_sendEvent = Simulator::Schedule (Seconds(0.001),
-                        &AirlineManager::msgReader, this);
+	m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
 }
 
 void AirlineManager::msgReader(void)
 {
+	INFO("IN MSGREADER!!! Simulator::Now(): %ld\n", Simulator::Now().GetTimeStep());
 	DEFINE_MBUF(mbuf);
 	while(1) {
 		cl_recvfrom_q(MTYPE(AIRLINE,CL_MGR_ID),
                 mbuf, sizeof(mbuf_buf), CL_FLAG_NOWAIT);
 		if(mbuf->len) {
+			INFO("mbuf->len\n");
 			msgrecvCallback(mbuf);
 			usleep(1);
 		} else {
+			INFO("else\n");
 			break;
 		}
 	}
