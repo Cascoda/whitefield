@@ -34,6 +34,9 @@
 #include "Command.h"
 #include "mac_stats.h"
 #include "IfaceHandler.h"
+extern "C" {
+#include "commline/ot_event_helpers.h"
+}
 
 ifaceCtx_t g_ifctx;
 
@@ -78,7 +81,7 @@ int AirlineManager::cmd_node_position(uint16_t id, char *buf, int buflen)
 	for (NodeContainer::Iterator i = nodes.Begin (); i != nodes.End (); ++i) 
 	{ 
 		Ptr<Node> node = *i; 
-		Ptr<MobilityModel> mob = node->GetObject<MobilityModel> (); 
+		Ptr<MobilityModel> mob = node->GetObject<MobilityModel> ();
 		if (! mob) continue;
 
 		Vector pos = mob->GetPosition (); 
@@ -174,11 +177,14 @@ int AirlineManager::cmd_set_node_position(uint16_t id, char *buf, int buflen)
 	return snprintf(buf, buflen, "SUCCESS");
 }
 
-//DO I WANT TO REPLACE THIS FUNCTION AND HAVE IT DEAL WITH EVENTS INSTEAD?
-//OR KEEP IT SO THAT IT DEALS WITH MBUF, BUT STILL CHANGE LOGIC INSIDE HERE...
+void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
+{
+	INFO("OTmsgrecvCallback got called!\n");
+	printEvent((struct Event *)mbuf);
+}
+
 void AirlineManager::msgrecvCallback(msg_buf_t *mbuf)
 {
-	INFO("msgrecvCallback got called!\n");
 	NodeContainer const & n = NodeContainer::GetGlobal (); 
 	int numNodes = stoi(CFG("numOfNodes"));
 
@@ -301,17 +307,14 @@ void AirlineManager::ScheduleCommlineRX(void)
 
 void AirlineManager::msgReader(void)
 {
-	INFO("IN MSGREADER!!! Simulator::Now(): %ld\n", Simulator::Now().GetTimeStep());
 	DEFINE_MBUF(mbuf);
 	while(1) {
 		cl_recvfrom_q(MTYPE(AIRLINE,CL_MGR_ID),
                 mbuf, sizeof(mbuf_buf), CL_FLAG_NOWAIT);
 		if(mbuf->len) {
-			INFO("mbuf->len\n");
-			msgrecvCallback(mbuf);
+			OTmsgrecvCallback(mbuf);
 			usleep(1);
 		} else {
-			INFO("else\n");
 			break;
 		}
 	}

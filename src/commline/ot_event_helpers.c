@@ -198,7 +198,7 @@ uint64_t getNodeCurTime(uint32_t nodeId)
 
 void handleReceivedEvent(struct Event *evt)
 {
-//	msg_buf_t mbuf;
+    size_t evt_len;
 
 	evt->mTimestamp = getNodeCurTime(evt->mNodeId) + evt->mDelay;
 
@@ -217,10 +217,13 @@ void handleReceivedEvent(struct Event *evt)
 	case OT_EVENT_TYPE_ALARM_FIRED:
 		INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
 		setAsleepNode();
-//		OtEventToWfBuf(mbuf, evt);
-//		if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), msg, msg->len + sizeof(msg_buf_t))) {
-//			//TODO mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);?
-//		}
+		evt_len = sizeof(*evt) - sizeof(evt->mData) + evt->mDataLength;
+		fprintf(stderr, "SIZEOF THE EVENT: %zu\n", evt_len);
+		if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)evt, evt_len)) {
+//			mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);
+			ERROR("FAILURE SENDING TO AIRLINE!!\n");
+		}
+		//SEND TO AIRLINE!
 		break;
 	}
 }
