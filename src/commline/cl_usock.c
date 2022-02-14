@@ -124,6 +124,11 @@ int usock_sendto(const long mtype, msg_buf_t *mbuf, uint16_t len)
     socklen_t          slen;
     int                ret;
 
+    //FOR DEBUGGING
+//    struct msg_buf_extended *mbuf_extended = (struct msg_buf_extended *)mbuf;
+//    INFO("IN usock_sendto\n");
+//    printEvent(&mbuf_extended->evt);
+
     mbuf->mtype = mtype;
 
     slen = usock_setabsaddr(mtype, &addr);

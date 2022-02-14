@@ -6,11 +6,12 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "ot_event_helpers.h"
 #include "cl_usock.h"
 
-int numOfAliveNodes = 0;
+int numOfAliveNodes;
 uint64_t g_nodes_cur_time[MAX_CHILD_PROCESSES]; //Stores the current virtual time of each node.
 
 /**
@@ -97,6 +98,7 @@ static const char *getEventTypeName(enum EventTypes evtType)
 
 void printEvent(const struct Event *evt)
 {
+	INFO("printEvent\n");
     fprintf(stderr, "evt->mDelay: %"PRIu64"\n", evt->mDelay);
     fprintf(stderr, "evt->mNodeId: %d\n", evt->mNodeId);
     fprintf(stderr, "evt->mEventType: %s\n", getEventTypeName((enum EventTypes)evt->mEventType));
@@ -104,7 +106,7 @@ void printEvent(const struct Event *evt)
     fprintf(stderr, "evt->mParam2: %d\n", evt->mParam2);
     fprintf(stderr, "evt->mDataLength: %d\n", evt->mDataLength);
     fprintf(stderr, "evt->mData: 0x");
-    for(uint8_t i = 0; i < evt->mDataLength; i++)
+    for(uint16_t i = 0; i < evt->mDataLength; i++)
     {
     	fprintf(stderr, "%x", evt->mData[i]);
     }
@@ -129,11 +131,21 @@ void wfBufToOtEvent(struct Event *evt_out, const msg_buf_t *mbuf_in, uint32_t ds
     memcpy(evt_out->mData, data, evt_out->mDataLength);
 }
 
-//TODO: Do meaningful translation
-void OtEventToWfBuf(msg_buf_t *mbuf_out, const struct Event *evt_in)
+void OtEventToWfBuf(struct msg_buf_extended *mbuf_out, const struct Event *evt_in)
 {
-	//Dummy values for now...
-	(void)evt_in;
+	INFO("IN OtEventToWfBuf\n");
+
+	mbuf_out->evt.mTimestamp = evt_in->mTimestamp;
+	mbuf_out->evt.mDelay = evt_in->mDelay;
+	mbuf_out->evt.mNodeId = evt_in->mNodeId;
+	mbuf_out->evt.mEventType = evt_in->mEventType;
+	mbuf_out->evt.mParam1 = evt_in->mParam1;
+	mbuf_out->evt.mParam2 = evt_in->mParam2;
+	mbuf_out->evt.mDataLength = evt_in->mDataLength;
+    memcpy(mbuf_out->evt.mData, evt_in->mData, evt_in->mDataLength);
+
+	INFO("PRINTEVENT IN OtEventToWfBuf\n");
+	printEvent(&mbuf_out->evt);
 }
 
 void serializeEvent(char *msg_out, const struct Event *evt_in)
@@ -186,6 +198,11 @@ void setAsleepNode()
 	numOfAliveNodes--;
 }
 
+int getAliveNodes()
+{
+	return numOfAliveNodes;
+}
+
 void setNodeCurTime(uint32_t nodeId, uint64_t time)
 {
 	g_nodes_cur_time[nodeId] = time;
@@ -199,13 +216,25 @@ uint64_t getNodeCurTime(uint32_t nodeId)
 void handleReceivedEvent(struct Event *evt)
 {
     size_t evt_len;
+    struct msg_buf_extended msg;
+    struct msg_buf_extended *msg_p = &msg;
 
-	evt->mTimestamp = getNodeCurTime(evt->mNodeId) + evt->mDelay;
+    evt->mDelay = 50;
+//	evt->mTimestamp = getNodeCurTime(evt->mNodeId) + evt->mDelay;
+    evt->mTimestamp = 0xaa;
+
+	//TOMORROW CONTINUE FROM HERE:::: BASICALLY MADE SURE MSG_P IS WHAT IT'S SUPPOSED TO BE.
+	//BUT LOOKING CORRUPT WHEN RECEIVED BY AIRLINE.
+	//SO NEED TO MAKE SURE SENGIND IS CORRECT AND
+	//NEED TO MAKE SURE RECEIVE IS CORRECT!
+    OtEventToWfBuf(msg_p, evt);
 
 	fprintf(stderr, "RECEIVED EVENT (node %d curTime: %"PRIu64") + "
 			"mDelay: %"PRIu64" = timestamp %"PRIu64"\n", evt->mNodeId,
 			getNodeCurTime(evt->mNodeId), evt->mDelay, evt->mTimestamp);
 
+	INFO("PRINTEVENT in handleReceivedEvent\n");
+	printEvent(&msg_p->evt);
 	switch(evt->mEventType)
 	{
 	case OT_EVENT_TYPE_STATUS_PUSH:
@@ -215,16 +244,40 @@ void handleReceivedEvent(struct Event *evt)
 		INFO("%s event processing not implemented yet...\n", getEventTypeName(evt->mEventType));
 		break;
 	case OT_EVENT_TYPE_ALARM_FIRED:
-		INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
-		setAsleepNode();
-		evt_len = sizeof(*evt) - sizeof(evt->mData) + evt->mDataLength;
-		fprintf(stderr, "SIZEOF THE EVENT: %zu\n", evt_len);
-		if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)evt, evt_len)) {
-//			mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);
-			ERROR("FAILURE SENDING TO AIRLINE!!\n");
-		}
-		//SEND TO AIRLINE!
-		break;
+		//Faking two more alive nodes total
+//		setAliveNode();
+//		setAliveNode();
+
+		INFO("NUM OF ALIVE NODES: %d\n", getAliveNodes());
+
+//		for(int i = 0; i < 3; i++)
+//		{
+//			if(i == 1)
+//			{
+//				evt->mDelay = 50;
+//				evt->mTimestamp = getNodeCurTime(evt->mNodeId) + evt->mDelay;
+//			} else if (i == 2)
+//			{
+//				evt->mDelay = 1740;
+//				evt->mTimestamp = getNodeCurTime(evt->mNodeId) + evt->mDelay;
+//			}
+
+			INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
+			setAsleepNode();
+			evt_len = sizeof(*evt) - sizeof(evt->mData) + evt->mDataLength;
+			fprintf(stderr, "SIZEOF THE EVENT: %zu\n", evt_len);
+//			fprintf(stderr, "\nHEX OF THE EVENT:\n0x");
+//			for(size_t i = 0; i < sizeof(struct msg_buf_extended); i++)
+//			{
+//				fprintf(stderr, "%hhx", *((uint8_t *)msg_p + i));
+//			}
+
+			if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)msg_p, sizeof(struct msg_buf_extended))) {
+//				mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);
+				ERROR("FAILURE SENDING TO AIRLINE!!\n");
+			}
+//		}
+//		break;
 	}
 }
 

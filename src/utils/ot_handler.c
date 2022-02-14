@@ -64,7 +64,7 @@ void *radio_thread(void *arg)
     struct Event *evt_p = &evt;
 
     while (1) {
-    	if(numOfAliveNodes > 0)
+    	if(getAliveNodes() > 0)
     	{
     		n = recvfrom(gRadioFD, (void *)msg, sizeof(msg), 0, NULL, 0);
 

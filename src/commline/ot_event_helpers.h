@@ -7,8 +7,6 @@
 #define OT_TOOL_PACKED_BEGIN
 #define OT_TOOL_PACKED_END __attribute__((packed))
 
-extern int numOfAliveNodes;
-
 enum EventTypes
 {
     OT_EVENT_TYPE_ALARM_FIRED            = 0,
@@ -39,6 +37,13 @@ struct Event
     uint8_t  mData[OT_EVENT_DATA_MAX_SIZE];
 } OT_TOOL_PACKED_END;
 
+OT_TOOL_PACKED_BEGIN
+struct msg_buf_extended
+{
+	msg_buf_t msg;
+	struct Event evt;
+} OT_TOOL_PACKED_BEGIN;
+
 // Print event.
 void printEvent(const struct Event *evt);
 
@@ -46,7 +51,7 @@ void printEvent(const struct Event *evt);
 void wfBufToOtEvent(struct Event *evt_out, const msg_buf_t *mbuf_in, uint32_t dst_id);
 
 // Translate from Event to msg_buf_t.
-void OtEventToWfBuf(msg_buf_t *mbuf_out, const struct Event *evt_in);
+void OtEventToWfBuf(struct msg_buf_extended *mbuf_out, const struct Event *evt_in);
 
 // Serialize OT event for sending over UDP.
 void serializeEvent(char *msg_out, const struct Event *evt_in);
@@ -56,6 +61,7 @@ void deserializeMessage(struct Event *evt_out, const char *msg_in);
 
 void setAliveNode();
 void setAsleepNode();
+int getAliveNodes();
 
 void setNodeCurTime(uint32_t nodeId, uint64_t time);
 uint64_t getNodeCurTime(uint32_t nodeId);

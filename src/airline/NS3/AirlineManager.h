@@ -27,6 +27,9 @@
 
 #include <ns3/node-container.h>
 #include <ns3/core-module.h>
+extern "C" {
+#include "commline/ot_event_helpers.h"
+}
 
 using namespace ns3;
 
@@ -34,6 +37,7 @@ class AirlineManager {
 private:
     void    msgrecvCallback(msg_buf_t *mbuf);
     void    OTmsgrecvCallback(msg_buf_t *mbuf);
+    void    OTSendAlarm(void);
     int     phyInstall(NodeContainer &nodes);
     int     startNetwork(wf::Config &cfg);
     void    nodePos(NodeContainer const &nodes, uint16_t id, double &x, double &y, double &z);
@@ -49,6 +53,8 @@ private:
     void    msgReader(void);
     void    ScheduleCommlineRX(void);
     EventId m_sendEvent;
+    struct Event m_alarmEvents[1024];
+    ssize_t m_numOfAlarmEvents;
 
 public:
     AirlineManager(wf::Config &cfg);
