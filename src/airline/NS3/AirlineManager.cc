@@ -35,21 +35,12 @@
 #include "Command.h"
 #include "mac_stats.h"
 #include "IfaceHandler.h"
-//extern "C" {
-//#include "commline/ot_event_helpers.h"
-//}
+extern "C" {
+#include "commline/ot_event_helpers.h"
+}
 
 ifaceCtx_t g_ifctx;
-bool stopReceiving = false;
-
-
-static bool compare(struct Event a, struct Event b)
-{
-	if(a.mTimestamp < b.mTimestamp)
-		return 1;
-	else
-		return 0;
-}
+//bool stopReceiving = false;
 
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
 {
@@ -188,69 +179,48 @@ int AirlineManager::cmd_set_node_position(uint16_t id, char *buf, int buflen)
 	return snprintf(buf, buflen, "SUCCESS");
 }
 
-void AirlineManager::OTSendAlarm(void)
+void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 {
 	INFO("IN OTSENDALARM\n");
-	stopReceiving = false;
-	m_numOfAlarmEvents--;
+	fprintf(stderr, "sim time: %ld\n", Simulator::Now().GetTimeStep());
+
+//	stopReceiving = false;
+//	m_numOfAlarmEvents--;
+	delete mbuf_ext;
 }
 
 void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 {
-	//TODO!!! CAN ACTUALLY SCHEDULE BEFORE RUN() (see socket-options-ipv4.cc)
-
 	INFO("OTmsgrecvCallback got called!\n");
-	struct msg_buf_extended *mbuf_ext = (struct msg_buf_extended *)mbuf;
-//	struct Event *evt = (struct Event *)mbuf;
 
-//			fprintf(stderr, "\nHEX OF THE EVENT:\n0x");
-//			for(size_t i = 0; i < sizeof(struct msg_buf_extended); i++)
-//			{
-//				fprintf(stderr, "%hhx", *((uint8_t *)mbuf_ext + i));
-//			}
+	struct msg_buf_extended *mbuf_ext = new struct msg_buf_extended;
+	memcpy(mbuf_ext, mbuf, sizeof(struct msg_buf_extended));
+
 	printEvent(&mbuf_ext->evt);
 
-//	Time delay = MicroSeconds(evt->mDelay);
+	Simulator::Stop();
 
+	if(mbuf_ext->evt.mEventType == OT_EVENT_TYPE_ALARM_FIRED)
+	{
+		INFO("ALARM EVENT RECEIVED\n");
 
-	//Need to store the event globally in an array or something???
-//	Simulator::Schedule(delay, &OTSendAlarm, mbuf);
-	//NOW THINK ABOUT THE SCHEDULING....
+		Time delay = MicroSeconds(mbuf_ext->evt.mDelay);
+		Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
 
-//	if(numOfAliveNodes == 0)
-//	{
-//		//Can Run the simulation now...
-//		stopReceiving = true;
-//	}
-//	else
-//	{
-//		stopReceiving = false;
-//	}
+		setAsleepNode();
+	}
 
-//	if(evt->mEventType == OT_EVENT_TYPE_ALARM_FIRED)
-//	{
-//		memcpy(&m_alarmEvents[m_numOfAlarmEvents], evt, sizeof(*evt));
-////		fprintf(stderr, "SIZEOF EVENT! %ld\n", sizeof(*evt));
-////		INFO("VERIFICATION!!\n");
-////
-////		struct Event *ver_evt = &m_alarmEvents[m_numOfAlarmEvents];
-////		printEvent(ver_evt);
-//		m_numOfAlarmEvents++;
-//		setAsleepNode();
-//
-//		// All nodes are sleeping, sort the alarm events based on timestamp
-//		if(getAliveNodes() == 0)
-//		{
-//			INFO("ALL NODES SLEEPING, TIME TO SORT...\n");
-//			sort(m_alarmEvents, m_alarmEvents + m_numOfAlarmEvents, compare);
-//			for(int i = 0; i < m_numOfAlarmEvents; i++)
-//			{
-//				INFO("EVENT %d: \n", i);
-//				struct Event *ver_evt = &m_alarmEvents[i];
-//				printEvent(ver_evt);
-//			}
-//		}
-//	}
+	if(getAliveNodes() == 0)
+	{
+		INFO("PROCESSING TIME...\n");
+		//Should process events happening at next earliest sim time.
+	}
+	else
+	{
+		ScheduleCommlineRX();
+	}
+
+	Simulator::Run();
 }
 
 void AirlineManager::msgrecvCallback(msg_buf_t *mbuf)
@@ -386,6 +356,7 @@ void AirlineManager::msgReader(void)
 			OTmsgrecvCallback(mbuf);
 			usleep(1);
 		} else {
+			INFO("msgReader else!\n");
 			break;
 		}
 	}
@@ -395,7 +366,7 @@ void AirlineManager::msgReader(void)
 AirlineManager::AirlineManager(wf::Config & cfg)
 {
 	m_sendEvent = EventId ();
-	m_numOfAlarmEvents = 0;
+//	m_numOfAlarmEvents = 0;
 	startNetwork(cfg);
 	CINFO << "AirlineManager started" << endl;
 }

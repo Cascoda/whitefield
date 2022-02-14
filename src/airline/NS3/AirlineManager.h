@@ -37,7 +37,7 @@ class AirlineManager {
 private:
     void    msgrecvCallback(msg_buf_t *mbuf);
     void    OTmsgrecvCallback(msg_buf_t *mbuf);
-    void    OTSendAlarm(void);
+    void    OTSendAlarm(struct msg_buf_extended *mbuf);
     int     phyInstall(NodeContainer &nodes);
     int     startNetwork(wf::Config &cfg);
     void    nodePos(NodeContainer const &nodes, uint16_t id, double &x, double &y, double &z);
@@ -53,8 +53,8 @@ private:
     void    msgReader(void);
     void    ScheduleCommlineRX(void);
     EventId m_sendEvent;
-    struct Event m_alarmEvents[1024];
-    ssize_t m_numOfAlarmEvents;
+//    struct Event m_alarmEvents[1024];
+//    ssize_t m_numOfAlarmEvents;
 
 public:
     AirlineManager(wf::Config &cfg);

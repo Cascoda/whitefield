@@ -142,9 +142,6 @@ void Config::spawnStackline(const uint16_t nodeID)
 		ERROR("Failure sending command to forker\n");
 	}
 	setAliveNode();
-	//2 ADDITIONAL FAKE NODES, JUST FOR THE SAKE OF TESTING ARRAY SORT...
-	setAliveNode();//MAKE SURE TO DELETE THIS AFTER TESTING!!!!
-	setAliveNode();//MAKE SURE TO DELETE THIS AFTER TESTING!!!!
 	if(nodeID == getNumberOfNodes()-1) {
 		INFO("All nodes started.\n");
 	}
