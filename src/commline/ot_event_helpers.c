@@ -223,7 +223,12 @@ void handleReceivedEvent(struct Event *evt)
 		INFO("%s events ignored...\n", getEventTypeName(evt->mEventType));
 		break;
 	case OT_EVENT_TYPE_UART_WRITE:
-		INFO("%s event processing not implemented yet...\n", getEventTypeName(evt->mEventType));
+		INFO("Log message from OpenThread:\n");
+		for(size_t i = 0; i < evt->mDataLength; i++)
+		{
+			fprintf(stderr, "%c", evt->mData[i]);
+		}
+		fprintf(stderr, "\n");
 		break;
 	case OT_EVENT_TYPE_ALARM_FIRED:
 			INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));

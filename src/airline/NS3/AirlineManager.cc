@@ -385,7 +385,6 @@ void AirlineManager::msgReader(void)
 			OTmsgrecvCallback(mbuf);
 			usleep(1);
 		} else {
-			INFO("msgReader else!\n");
 			break;
 		}
 	}
