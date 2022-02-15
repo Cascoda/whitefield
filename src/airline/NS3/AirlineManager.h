@@ -52,6 +52,7 @@ private:
     int     setAllNodesParam(NodeContainer &nodes);
     void    msgReader(void);
     void    ScheduleCommlineRX(void);
+    void    otSendConfigUart(const uint16_t nodeID, const string ot_config);
     EventId m_sendEvent;
 //    struct Event m_alarmEvents[1024];
 //    ssize_t m_numOfAlarmEvents;

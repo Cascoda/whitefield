@@ -23,11 +23,13 @@
 
 #include <common.h>
 #include <mac_stats.h>
+#include <cstring>
 
 namespace wf {
 class Nodeinfo : public Macstats {
 private:
     string  nodeExec;
+    string  nodeConfig;
     string  capFile;
     double  X, Y, Z;
     uint8_t pos_set;
@@ -45,6 +47,22 @@ public:
     void setkv(string key, string val)
     {
         keyval[key] = val;
+    };
+    string getNodeConfig(void)
+    {
+        return nodeConfig;
+    };
+    void setNodeConfig(const string config_str)
+    {
+        nodeConfig = config_str;
+
+        for(size_t i = 0; i < nodeConfig.length(); i++)
+        {
+        	if(nodeConfig[i] == ';')
+        	{
+        		nodeConfig[i] = '\n';
+        	}
+        }
     };
     string getNodeExecutable(void)
     {

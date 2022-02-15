@@ -33,6 +33,7 @@ private:
 
     int setNumberOfNodes(const int value);
     int setNodeSetExec(const string exec, int beg, int end);
+    int setNodeConfig(const string cfg, int beg, int end);
     int setNodeSetCapFile(const string path, int beg, int end);
     int setNodePosition(const string position, int beg, int end);
     int setNodePromis(const string pmode, int beg, int end);

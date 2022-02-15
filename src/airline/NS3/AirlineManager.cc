@@ -40,7 +40,7 @@ extern "C" {
 }
 
 ifaceCtx_t g_ifctx;
-//bool stopReceiving = false;
+bool g_cfg_sent[1024] = {false};
 
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
 {
@@ -179,6 +179,26 @@ int AirlineManager::cmd_set_node_position(uint16_t id, char *buf, int buflen)
 	return snprintf(buf, buflen, "SUCCESS");
 }
 
+void AirlineManager::otSendConfigUart(const uint16_t nodeID, const string ot_config)
+{
+	struct Event evt;
+	struct msg_buf_extended mbuf;
+	struct msg_buf_extended *mbuf_ext = &mbuf;
+
+    evt.mDelay = 0;
+    evt.mNodeId = nodeID;
+    evt.mEventType = OT_EVENT_TYPE_UART_WRITE;
+    evt.mDataLength = ot_config.length();
+    fprintf(stderr, "ot_config.length: %d\n", evt.mDataLength);
+    strcpy((char *)evt.mData, ot_config.c_str());
+
+    OtEventToWfBuf(mbuf_ext, &evt);
+
+//    printEvent(&evt);
+
+	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
+}
+
 void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 {
 	INFO("IN OTSENDALARM\n");
@@ -202,7 +222,14 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 
 	Simulator::Stop();
 
-	if(mbuf_ext->evt.mEventType == OT_EVENT_TYPE_ALARM_FIRED)
+	// Configure OT node. Only happens once at the start
+	if(!g_cfg_sent[mbuf_ext->evt.mNodeId]) // If node not configured yet
+	{
+		string cfg = CFG("nodeConfig");
+		otSendConfigUart(mbuf_ext->evt.mNodeId, cfg);
+		g_cfg_sent[mbuf_ext->evt.mNodeId] = true;
+	}
+	else if(mbuf_ext->evt.mEventType == OT_EVENT_TYPE_ALARM_FIRED)
 	{
 		INFO("ALARM EVENT RECEIVED\n");
 
