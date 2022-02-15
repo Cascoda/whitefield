@@ -63,7 +63,6 @@ int usock_init(const long my_mtype, const uint8_t flags)
         return FAILURE;
     }
 
-	INFO("NOT STACKLINE: LINE %d\n", line);
 	socklen_t          slen;
 	struct sockaddr_un addr;
 

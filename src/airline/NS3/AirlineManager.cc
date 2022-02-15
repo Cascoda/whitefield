@@ -217,6 +217,7 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 {
 	INFO("OTmsgrecvCallback got called!\n");
 
+	Time delay;
 	struct msg_buf_extended *mbuf_ext = new struct msg_buf_extended;
 	memcpy(mbuf_ext, mbuf, sizeof(struct msg_buf_extended));
 
@@ -231,14 +232,19 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 		otSendConfigUart(mbuf_ext->evt.mNodeId, cfg);
 		g_cfg_sent[mbuf_ext->evt.mNodeId] = true;
 	}
-	else if(mbuf_ext->evt.mEventType == OT_EVENT_TYPE_ALARM_FIRED)
+	else
 	{
-		INFO("ALARM EVENT RECEIVED\n");
+		delay = MicroSeconds(mbuf_ext->evt.mDelay);
 
-		Time delay = MicroSeconds(mbuf_ext->evt.mDelay);
-		Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
-
-		setAsleepNode();
+		switch (mbuf_ext->evt.mEventType) {
+			case OT_EVENT_TYPE_ALARM_FIRED:
+				INFO("ALARM EVENT RECEIVED\n");
+				Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
+				setAsleepNode();
+				break;
+			default:
+				INFO("PROCESSING OF EVENT %s NOT IMPLEMENTED YET...", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
+		}
 	}
 
 	if(getAliveNodes() == 0)

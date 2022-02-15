@@ -73,7 +73,7 @@ static inline void PUTLE64(uint64_t in, uint8_t *out)
 	out[7] = (in >> 56) & 0xff;
 }
 
-static const char *getEventTypeName(enum EventTypes evtType)
+const char *getEventTypeName(enum EventTypes evtType)
 {
 	switch (evtType)
 	{
@@ -209,8 +209,6 @@ void handleReceivedEvent(struct Event *evt)
     struct msg_buf_extended msg;
     struct msg_buf_extended *msg_p = &msg;
 
-	evt->mTimestamp = getNodeCurTime(evt->mNodeId) + evt->mDelay;
-
     OtEventToWfBuf(msg_p, evt);
 
 	fprintf(stderr, "RECEIVED EVENT (node %d curTime: %"PRIu64") + "
@@ -231,37 +229,16 @@ void handleReceivedEvent(struct Event *evt)
 		fprintf(stderr, "\n");
 		break;
 	case OT_EVENT_TYPE_ALARM_FIRED:
-			INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
-			if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)msg_p, sizeof(struct msg_buf_extended))) {
+		INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
+		if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)msg_p, sizeof(struct msg_buf_extended))) {
 	//				mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);
-				ERROR("FAILURE SENDING TO AIRLINE!!\n");
-			}
+			ERROR("FAILURE SENDING TO AIRLINE!!\n");
+		}
+		break;
+	case OT_EVENT_TYPE_RADIO_FRAME_TO_NODE:
+		INFO("Handling %s event ...\n", getEventTypeName(evt->mEventType));
+		break;
+	default:
+		INFO("%s events not implemented yet...\n", getEventTypeName(evt->mEventType));
 	}
 }
-
-//void processEvent(const struct Event *evt)
-//{
-//	if(evt->mEventType == OT_EVENT_TYPE_STATUS_PUSH)
-//	{
-//		INFO("%s events ignored...\n", getEventTypeName(evt->mEventType));
-//		return;
-//	}
-//	else
-//	{
-//		INFO("Processing %s event...\n", getEventTypeName(evt->mEventType));
-//
-//		// time keeping: infer abs time this event should happen, from the delta Delay given.
-//		evt->mTimestamp = node.CurTime + evt->mDelay;
-//		//NOTE: AND ALSO NEXT STEP FOR MONDAY... node's curr time should be set to Whitefield's current time at the point where it is instantiated.
-//		//When does the node's curr time get updated? Look that up and implement.
-//
-////		switch (evt->mEventType)
-////		{
-////			case OT_EVENT_TYPE_ALARM_FIRED:
-////				//1. assert that delay is greater than 0
-////				//2. indicate that this node isn't alive anymore (array of bools?)
-////				//3.
-////				break;
-////		}
-//	}
-//}

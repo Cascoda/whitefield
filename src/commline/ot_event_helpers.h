@@ -44,6 +44,9 @@ struct msg_buf_extended
 	struct Event evt;
 } OT_TOOL_PACKED_BEGIN;
 
+// Convenience function for printing event names
+const char *getEventTypeName(enum EventTypes evtType);
+
 // Print event.
 void printEvent(const struct Event *evt);
 
