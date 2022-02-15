@@ -64,31 +64,24 @@ void *radio_thread(void *arg)
     struct Event *evt_p = &evt;
 
     while (1) {
-    	if(getAliveNodes() > 0)
-    	{
-    		n = recvfrom(gRadioFD, (void *)msg, sizeof(msg), 0, NULL, 0);
+		n = recvfrom(gRadioFD, (void *)msg, sizeof(msg), 0, NULL, 0);
 
-    		if (n <= 0) {
-    			usleep(1);
-   	 	        continue;
-		    }
-		    else if (n < OT_EVENT_METADATA_SIZE)
-		    {
-	 	       	ERROR("UDP RECV NOT ENOUGH BYTES FROM OT NODE ID\n");
-   	 	        return NULL;
-		    }
-		    INFO("gRadioFD RECEIVED\n");
+		if (n <= 0) {
+			usleep(1);
+				continue;
+		}
+		else if (n < OT_EVENT_METADATA_SIZE)
+		{
+				ERROR("UDP RECV NOT ENOUGH BYTES FROM OT NODE ID\n");
+				return NULL;
+		}
+		INFO("gRadioFD RECEIVED\n");
 
-		    deserializeMessage(evt_p, msg);
-		    printEvent(evt_p);
+		deserializeMessage(evt_p, msg);
+		printEvent(evt_p);
 
-		    handleReceivedEvent(evt_p);
-    	}
-    	else
-    	{
-    		usleep(100);
-    	}
-
+		handleReceivedEvent(evt_p);
+		usleep(10);
     }
 
     //Unreachable!

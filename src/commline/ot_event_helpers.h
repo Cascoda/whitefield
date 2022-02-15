@@ -47,10 +47,10 @@ struct msg_buf_extended
 // Print event.
 void printEvent(const struct Event *evt);
 
-// Translate from msg_buf_t to Event type.
-void wfBufToOtEvent(struct Event *evt_out, const msg_buf_t *mbuf_in, uint32_t dst_id);
+// Translate from msg_buf_extended to Event type.
+void wfBufToOtEvent(struct Event *evt_out, const struct msg_buf_extended *mbuf_in);
 
-// Translate from Event to msg_buf_t.
+// Translate from Event to msg_buf_extended.
 void OtEventToWfBuf(struct msg_buf_extended *mbuf_out, const struct Event *evt_in);
 
 // Serialize OT event for sending over UDP.

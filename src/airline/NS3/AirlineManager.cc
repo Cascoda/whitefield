@@ -184,8 +184,10 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 	INFO("IN OTSENDALARM\n");
 	fprintf(stderr, "sim time: %ld\n", Simulator::Now().GetTimeStep());
 
-//	stopReceiving = false;
-//	m_numOfAlarmEvents--;
+	// Send event to OT node
+	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
+	setAliveNode();
+
 	delete mbuf_ext;
 }
 
@@ -366,7 +368,6 @@ void AirlineManager::msgReader(void)
 AirlineManager::AirlineManager(wf::Config & cfg)
 {
 	m_sendEvent = EventId ();
-//	m_numOfAlarmEvents = 0;
 	startNetwork(cfg);
 	CINFO << "AirlineManager started" << endl;
 }

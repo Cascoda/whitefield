@@ -113,28 +113,20 @@ void printEvent(const struct Event *evt)
     fprintf(stderr, "\n");
 }
 
-//TODO: Do meaningful translation (extract actual information from buffer into event)
-void wfBufToOtEvent(struct Event *evt_out, const msg_buf_t *mbuf_in, uint32_t dst_id)
+void wfBufToOtEvent(struct Event *evt_out, const struct msg_buf_extended *mbuf_in)
 {
-	//Dummy values for now...
-	(void)mbuf_in;
-
-	uint32_t ot_dst_id = dst_id + 1;
-
-	static uint8_t data[4] = {0xca, 0x5c, 0x0d, 0xa0};
-	evt_out->mDelay = 5;
-	evt_out->mNodeId = ot_dst_id;
-	evt_out->mEventType = OT_EVENT_TYPE_UART_WRITE;
-	evt_out->mParam1 = 1;
-	evt_out->mParam2 = 2;
-	evt_out->mDataLength = sizeof(data);
-    memcpy(evt_out->mData, data, evt_out->mDataLength);
+    evt_out->mTimestamp = mbuf_in->evt.mTimestamp;
+	evt_out->mDelay = mbuf_in->evt.mDelay;
+	evt_out->mNodeId = mbuf_in->evt.mNodeId;
+	evt_out->mEventType = mbuf_in->evt.mEventType;
+	evt_out->mParam1 = mbuf_in->evt.mParam1;
+	evt_out->mParam2 = mbuf_in->evt.mParam2;
+	evt_out->mDataLength = mbuf_in->evt.mDataLength;
+    memcpy(evt_out->mData, mbuf_in->evt.mData, evt_out->mDataLength);
 }
 
 void OtEventToWfBuf(struct msg_buf_extended *mbuf_out, const struct Event *evt_in)
 {
-	INFO("IN OtEventToWfBuf\n");
-
 	mbuf_out->evt.mTimestamp = evt_in->mTimestamp;
 	mbuf_out->evt.mDelay = evt_in->mDelay;
 	mbuf_out->evt.mNodeId = evt_in->mNodeId;
@@ -143,9 +135,6 @@ void OtEventToWfBuf(struct msg_buf_extended *mbuf_out, const struct Event *evt_i
 	mbuf_out->evt.mParam2 = evt_in->mParam2;
 	mbuf_out->evt.mDataLength = evt_in->mDataLength;
     memcpy(mbuf_out->evt.mData, evt_in->mData, evt_in->mDataLength);
-
-//	INFO("PRINTEVENT IN OtEventToWfBuf\n");
-//	printEvent(&mbuf_out->evt);
 }
 
 void serializeEvent(char *msg_out, const struct Event *evt_in)
@@ -217,24 +206,17 @@ uint64_t getNodeCurTime(uint32_t nodeId)
 
 void handleReceivedEvent(struct Event *evt)
 {
-    size_t evt_len;
     struct msg_buf_extended msg;
     struct msg_buf_extended *msg_p = &msg;
 
 	evt->mTimestamp = getNodeCurTime(evt->mNodeId) + evt->mDelay;
 
-	//TOMORROW CONTINUE FROM HERE:::: BASICALLY MADE SURE MSG_P IS WHAT IT'S SUPPOSED TO BE.
-	//BUT LOOKING CORRUPT WHEN RECEIVED BY AIRLINE.
-	//SO NEED TO MAKE SURE SENGIND IS CORRECT AND
-	//NEED TO MAKE SURE RECEIVE IS CORRECT!
     OtEventToWfBuf(msg_p, evt);
 
 	fprintf(stderr, "RECEIVED EVENT (node %d curTime: %"PRIu64") + "
 			"mDelay: %"PRIu64" = timestamp %"PRIu64"\n", evt->mNodeId,
 			getNodeCurTime(evt->mNodeId), evt->mDelay, evt->mTimestamp);
 
-//	INFO("PRINTEVENT in handleReceivedEvent\n");
-//	printEvent(&msg_p->evt);
 	switch(evt->mEventType)
 	{
 	case OT_EVENT_TYPE_STATUS_PUSH:
@@ -244,21 +226,11 @@ void handleReceivedEvent(struct Event *evt)
 		INFO("%s event processing not implemented yet...\n", getEventTypeName(evt->mEventType));
 		break;
 	case OT_EVENT_TYPE_ALARM_FIRED:
-		INFO("NUM OF ALIVE NODES: %d\n", getAliveNodes());
-		INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
-		setAsleepNode();
-		evt_len = sizeof(*evt) - sizeof(evt->mData) + evt->mDataLength;
-		fprintf(stderr, "SIZEOF THE EVENT: %zu\n", evt_len);
-//			fprintf(stderr, "\nHEX OF THE EVENT:\n0x");
-//			for(size_t i = 0; i < sizeof(struct msg_buf_extended); i++)
-//			{
-//				fprintf(stderr, "%hhx", *((uint8_t *)msg_p + i));
-//			}
-
-		if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)msg_p, sizeof(struct msg_buf_extended))) {
-//				mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);
-			ERROR("FAILURE SENDING TO AIRLINE!!\n");
-		}
+			INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
+			if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)msg_p, sizeof(struct msg_buf_extended))) {
+	//				mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);
+				ERROR("FAILURE SENDING TO AIRLINE!!\n");
+			}
 	}
 }
 

@@ -163,7 +163,7 @@ void wait_on_q(void)
             if ((SUCCESS != fork_n_exec(mbuf->src_id, (char *)mbuf->buf)))
                 break;
         }
-        setAliveNode();
+//        setAliveNode();
         setNodeCurTime(mbuf->src_id, 0);
         INFO("WAIT ON Q NODE ID %d\n", mbuf->src_id);
     }

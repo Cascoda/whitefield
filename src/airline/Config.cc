@@ -141,7 +141,10 @@ void Config::spawnStackline(const uint16_t nodeID)
 	if(SUCCESS != cl_sendto_q(MTYPE(FORKER, CL_MGR_ID), mbuf, len + sizeof(msg_buf_t))) {
 		ERROR("Failure sending command to forker\n");
 	}
+
 	setAliveNode();
+    ot_init(nodeID);
+
 	if(nodeID == getNumberOfNodes()-1) {
 		INFO("All nodes started.\n");
 	}

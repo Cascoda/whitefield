@@ -175,7 +175,6 @@ int udp_sock_init(const uint16_t nodeId)
 
 int udp_sock_sendto(const uint16_t nodeId, struct Event *evt)
 {
-	INFO("udp_sock_sendto called\n");
 	char mbuf[OT_MAX_MSG_SIZE];
     ssize_t            rval;
     size_t mbuf_len;
@@ -200,42 +199,4 @@ int udp_sock_sendto(const uint16_t nodeId, struct Event *evt)
 
 	INFO("UDP SEND SUCCESSFUL FOR OT NODE ID %d\n", ot_nodeid);
 	return SUCCESS;
-}
-
-int udp_sock_recvfrom(const uint16_t nodeId, struct Event *evt)
-{
-	char mbuf[OT_MAX_MSG_SIZE];
-    int rval;
-    int sockfd = g_udpsock_fd[nodeId];
-	uint16_t ot_nodeid = nodeId + 1;
-
-	INFO("BEFORE!!!!\n");
-    rval = recvfrom(sockfd, (void *)mbuf, sizeof(mbuf), 0, NULL, NULL);
-    INFO("AFTER!!!!\n");
-    if(rval <= 0)
-    {
-    	ERROR("UDP RECV FAILED FROM OT NODE ID %d\n", ot_nodeid);
-    	return FAILURE;
-    }
-    else if (rval < OT_EVENT_METADATA_SIZE)
-    {
-        ERROR("UDP RECV NOT ENOUGH BYTES FROM OT NODE ID %d\n", ot_nodeid);
-        return FAILURE;
-    }
-
-    deserializeMessage(evt, mbuf);
-    fprintf(stderr, "evt->mDelay: %"PRIu64"\n", evt->mDelay);
-    fprintf(stderr, "evt->mEventType: %d\n", evt->mEventType);
-    fprintf(stderr, "evt->mParam1: %d\n", evt->mParam1);
-    fprintf(stderr, "evt->mParam2: %d\n", evt->mParam2);
-    fprintf(stderr, "evt->mDataLength: %d\n", evt->mDataLength);
-    fprintf(stderr, "evt->mData: 0x");
-    for(uint8_t i = 0; i < evt->mDataLength; i++)
-    {
-    	fprintf(stderr, "%x", evt->mData[i]);
-    }
-    fprintf(stderr, "\n");
-
-	INFO("UDP RECV SUCCESSFUL FOR OT NODE ID %d\n", ot_nodeid);
-	return rval;
 }
