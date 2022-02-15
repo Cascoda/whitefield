@@ -39,6 +39,8 @@ extern "C" {
 #include "commline/ot_event_helpers.h"
 }
 
+#define OPENTHREAD_RESOLUTION Time::Unit::US
+
 ifaceCtx_t g_ifctx;
 bool g_cfg_sent[1024] = {false};
 
@@ -355,6 +357,8 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 		AirlineHelper airlineApp;
 		ApplicationContainer apps = airlineApp.Install(g_ifctx.nodes);
 		apps.Start(Seconds(0.0));
+
+		Time::SetResolution(OPENTHREAD_RESOLUTION);
 
 		ScheduleCommlineRX();
 		CINFO << "NS3 Simulator::Run initiated...\n";
