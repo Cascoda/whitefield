@@ -151,7 +151,7 @@ git_submodule_dload()
         cd $2 && \
 	if [[ "$2" == "$STACKLINE_OPENTHREAD" ]]
 	then
-		git checkout sim-radio-model
+		git checkout wf-changes-and-tests 
 	else
 		git checkout master
 	fi && \
