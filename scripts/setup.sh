@@ -170,6 +170,7 @@ git_download()
         cd thirdparty/ns-3-dev-git
         git submodule update --init --progress
         git submodule foreach git pull origin master
+	git checkout wf-sim-changes
         cd -
     fi
 }

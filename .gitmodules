@@ -4,8 +4,8 @@
 	branch = master
 [submodule "thirdparty/ns-3-dev-git"]
 	path = thirdparty/ns-3-dev-git
-	url = https://github.com/whitefield-framework/ns-3-dev-git
-	branch = master
+	url = https://github.com/Cascoda/ns-3-dev-git
+	branch = wf-sim-changes
 [submodule "thirdparty/RIOT"]
 	path = thirdparty/RIOT
 	url = https://github.com/whitefield-framework/RIOT
