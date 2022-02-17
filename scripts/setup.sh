@@ -149,12 +149,15 @@ git_submodule_dload()
     [[ $1 -eq 1 ]] && echo "Submodule init [$2] ..." && \
         git submodule update --progress --init -- $2 && \
         cd $2 && \
-	if [[ "$2" == "$STACKLINE_OPENTHREAD" ]]
-	then
-		git checkout wf-changes-and-tests 
-	else
-		git checkout master
-	fi && \
+        if [[ "$2" == "$STACKLINE_OPENTHREAD" ]]
+        then
+        	git checkout wf-changes-and-tests 
+        elif [[ "$2" == "$AIRLINE_NS3" ]]
+        then
+        	git checkout wf-sim-changes
+        else
+        	git checkout master
+        fi && \
        	cd -
 }
 
@@ -169,8 +172,7 @@ git_download()
     if [ $NS -eq 1 ]; then
         cd thirdparty/ns-3-dev-git
         git submodule update --init --progress
-        git submodule foreach git pull origin master
-	git checkout wf-sim-changes
+	git submodule foreach git pull origin wf-plc-changes
         cd -
     fi
 }
