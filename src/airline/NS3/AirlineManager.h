@@ -38,6 +38,7 @@ private:
     void    msgrecvCallback(msg_buf_t *mbuf);
     void    OTmsgrecvCallback(msg_buf_t *mbuf);
     void    OTSendAlarm(struct msg_buf_extended *mbuf);
+    void    OTFrameToSim(struct msg_buf_extended *mbuf_ext);
     int     phyInstall(NodeContainer &nodes);
     int     startNetwork(wf::Config &cfg);
     void    nodePos(NodeContainer const &nodes, uint16_t id, double &x, double &y, double &z);
@@ -54,8 +55,6 @@ private:
     void    ScheduleCommlineRX(void);
     void    otSendConfigUart(const uint16_t nodeID, const string ot_config);
     EventId m_sendEvent;
-//    struct Event m_alarmEvents[1024];
-//    ssize_t m_numOfAlarmEvents;
 
 public:
     AirlineManager(wf::Config &cfg);

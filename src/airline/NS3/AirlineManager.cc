@@ -26,6 +26,8 @@
 #include <iostream>
 #include <algorithm>
 
+#include <inttypes.h>
+
 #include <ns3/single-model-spectrum-channel.h>
 #include <ns3/mobility-module.h>
 #include <ns3/spectrum-value.h>
@@ -203,7 +205,7 @@ void AirlineManager::otSendConfigUart(const uint16_t nodeID, const string ot_con
 
 void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 {
-	INFO("IN OTSENDALARM\n");
+	INFO("IN OTSendAlarm\n");
 	fprintf(stderr, "sim time: %ld\n", Simulator::Now().GetTimeStep());
 
 	// Send event to OT node
@@ -211,6 +213,44 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 	setAliveNode();
 
 	delete mbuf_ext;
+
+	if(Simulator::IsNextEventNow())
+	{
+		// Don't do anything special, cause will be processed automatically.
+		INFO("PROCESS NEXT EVENT...\n");
+	}
+	else
+	{
+		// We don't want to process the next event quite yet. Instead,
+		// want to go back to listening...
+		INFO("BACK TO LISTENING...\n");
+		ScheduleCommlineRX();
+	}
+}
+
+void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
+{
+	INFO("IN OTFrameToSim\n");
+
+	//TODO: THIS IS FAKE RIGHT NOW, JUST SENDS ALARM EVENT BACK...
+	mbuf_ext->evt.mEventType = OT_EVENT_TYPE_ALARM_FIRED;
+	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
+	setAliveNode();
+
+	delete mbuf_ext;
+
+	if(Simulator::IsNextEventNow())
+	{
+		// Don't do anything special, cause will be processed automatically.
+		INFO("PROCESS NEXT EVENT...\n");
+	}
+	else
+	{
+		// We don't want to process the next event quite yet. Instead,
+		// want to go back to listening...
+		INFO("BACK TO LISTENING...\n");
+		ScheduleCommlineRX();
+	}
 }
 
 void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
@@ -218,6 +258,7 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 	INFO("OTmsgrecvCallback got called!\n");
 
 	Time delay;
+
 	struct msg_buf_extended *mbuf_ext = new struct msg_buf_extended;
 	memcpy(mbuf_ext, mbuf, sizeof(struct msg_buf_extended));
 
@@ -238,19 +279,22 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 
 		switch (mbuf_ext->evt.mEventType) {
 			case OT_EVENT_TYPE_ALARM_FIRED:
-				INFO("ALARM EVENT RECEIVED\n");
+				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
 				Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
 				setAsleepNode();
 				break;
+			case OT_EVENT_TYPE_RADIO_FRAME_TO_SIM:
+				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
+				Simulator::Schedule(delay, &AirlineManager::OTFrameToSim, this, mbuf_ext);
+				break;
 			default:
-				INFO("PROCESSING OF EVENT %s NOT IMPLEMENTED YET...", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
+				INFO("PROCESSING OF EVENT %s NOT IMPLEMENTED YET...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
 		}
 	}
 
 	if(getAliveNodes() == 0)
 	{
 		INFO("PROCESSING TIME...\n");
-		//Should process events happening at next earliest sim time.
 	}
 	else
 	{

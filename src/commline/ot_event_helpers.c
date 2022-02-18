@@ -211,32 +211,29 @@ void handleReceivedEvent(struct Event *evt)
 
     OtEventToWfBuf(msg_p, evt);
 
-	fprintf(stderr, "RECEIVED EVENT (node %d curTime: %"PRIu64") + "
-			"mDelay: %"PRIu64" = timestamp %"PRIu64"\n", evt->mNodeId,
-			getNodeCurTime(evt->mNodeId), evt->mDelay, evt->mTimestamp);
-
 	switch(evt->mEventType)
 	{
 	case OT_EVENT_TYPE_STATUS_PUSH:
 		INFO("%s events ignored...\n", getEventTypeName(evt->mEventType));
 		break;
 	case OT_EVENT_TYPE_UART_WRITE:
-		INFO("Log message from OpenThread:\n");
-		for(size_t i = 0; i < evt->mDataLength; i++)
-		{
-			fprintf(stderr, "%c", evt->mData[i]);
-		}
-		fprintf(stderr, "\n");
+//		INFO("Log message from OpenThread:\n");
+//		for(size_t i = 0; i < evt->mDataLength; i++)
+//		{
+//			fprintf(stderr, "%c", evt->mData[i]);
+//		}
+//		fprintf(stderr, "\n");
 		break;
 	case OT_EVENT_TYPE_ALARM_FIRED:
+	case OT_EVENT_TYPE_RADIO_FRAME_TO_SIM:
+	case OT_EVENT_TYPE_RADIO_FRAME_TO_NODE:
+	case OT_EVENT_TYPE_RADIO_FRAME_ACK_TO_SIM:
+	case OT_EVENT_TYPE_RADIO_TX_DONE:
 		INFO("Handling %s event...\n", getEventTypeName(evt->mEventType));
 		if(CL_SUCCESS != cl_sendto_q(MTYPE(AIRLINE, CL_MGR_ID), (msg_buf_t *)msg_p, sizeof(struct msg_buf_extended))) {
 	//				mac_call_sent_callback(sent, ptr, MAC_TX_ERR_FATAL, 3);
 			ERROR("FAILURE SENDING TO AIRLINE!!\n");
 		}
-		break;
-	case OT_EVENT_TYPE_RADIO_FRAME_TO_NODE:
-		INFO("Handling %s event ...\n", getEventTypeName(evt->mEventType));
 		break;
 	default:
 		INFO("%s events not implemented yet...\n", getEventTypeName(evt->mEventType));
