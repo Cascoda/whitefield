@@ -164,7 +164,7 @@ void wait_on_q(void)
                 break;
         }
 //        setAliveNode();
-        setNodeCurTime(mbuf->src_id, 0);
+//        setNodeCurTime(mbuf->src_id, 0);
         INFO("WAIT ON Q NODE ID %d\n", mbuf->src_id);
     }
     killall_childprocess();

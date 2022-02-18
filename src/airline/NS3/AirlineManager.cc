@@ -208,12 +208,22 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 	INFO("IN OTSendAlarm\n");
 	fprintf(stderr, "sim time: %ld\n", Simulator::Now().GetTimeStep());
 
-	// Send event to OT node
+	// Update delay based on node's current time and send event to OT node
+	if(getNodeCurTime(mbuf_ext->evt.mNodeId) > Simulator::Now().GetTimeStep())
+		ERROR("ASFASEOFIJAOEJFOSEJF PROOOOOOOOOBLEM!!!!!! ========ASD=FASD=F-ASD=F-\n");
+
+	mbuf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(mbuf_ext->evt.mNodeId);
 	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
+	printEvent(&mbuf_ext->evt);
+
+	// Update node's status
 	setAliveNode();
+	uint64_t node_cur_time = getNodeCurTime(mbuf_ext->evt.mNodeId);
+	setNodeCurTime(mbuf_ext->evt.mNodeId, node_cur_time + mbuf_ext->evt.mDelay);
 
 	delete mbuf_ext;
 
+	// Decide whether to process next event or listen for new incoming events
 	if(Simulator::IsNextEventNow())
 	{
 		// Don't do anything special, cause will be processed automatically.
@@ -234,8 +244,17 @@ void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 
 	//TODO: THIS IS FAKE RIGHT NOW, JUST SENDS ALARM EVENT BACK...
 	mbuf_ext->evt.mEventType = OT_EVENT_TYPE_ALARM_FIRED;
+
+	// Update delay based on node's current time and send event to OT node
+	if(getNodeCurTime(mbuf_ext->evt.mNodeId) > Simulator::Now().GetTimeStep())
+		ERROR("ASFASEOFIJAOEJFOSEJF PROOOOOOOOOBLEM!!!!!! ========ASD=FASD=F-ASD=F-\n");
+
+	mbuf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(mbuf_ext->evt.mNodeId);
 	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
+	printEvent(&mbuf_ext->evt);
 	setAliveNode();
+	uint64_t node_cur_time = getNodeCurTime(mbuf_ext->evt.mNodeId);
+	setNodeCurTime(mbuf_ext->evt.mNodeId, node_cur_time + mbuf_ext->evt.mDelay);
 
 	delete mbuf_ext;
 

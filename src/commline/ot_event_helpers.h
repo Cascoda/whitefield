@@ -7,6 +7,8 @@
 #define OT_TOOL_PACKED_BEGIN
 #define OT_TOOL_PACKED_END __attribute__((packed))
 
+extern uint64_t g_nodes_cur_time[1024]; //Stores the current virtual time of each node.
+
 enum EventTypes
 {
     OT_EVENT_TYPE_ALARM_FIRED            = 0,

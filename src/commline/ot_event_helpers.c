@@ -12,7 +12,7 @@
 #include "cl_usock.h"
 
 int numOfAliveNodes = 0;
-uint64_t g_nodes_cur_time[MAX_CHILD_PROCESSES]; //Stores the current virtual time of each node.
+uint64_t g_nodes_cur_time[1024] = {0}; //Stores the current virtual time of each node.
 
 /**
  * Extract a 16-bit value from a little-endian octet array
@@ -196,12 +196,12 @@ int getAliveNodes()
 
 void setNodeCurTime(uint32_t nodeId, uint64_t time)
 {
-	g_nodes_cur_time[nodeId] = time;
+	g_nodes_cur_time[nodeId - 1] = time;
 }
 
 uint64_t getNodeCurTime(uint32_t nodeId)
 {
-	return g_nodes_cur_time[nodeId];
+	return g_nodes_cur_time[nodeId - 1];
 }
 
 void handleReceivedEvent(struct Event *evt)
