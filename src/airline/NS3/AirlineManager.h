@@ -51,10 +51,14 @@ private:
     void    setPositionAllocator(NodeContainer &nodes);
     void    setNodeSpecificParam(NodeContainer &nodes);
     int     setAllNodesParam(NodeContainer &nodes);
+    void    setSimulationEndTime(void);
     void    msgReader(void);
+    void    KillSimulation(void);
     void    ScheduleCommlineRX(void);
+    void    ScheduleSimulationEnd(void);
     void    otSendConfigUart(const uint16_t nodeID, const string ot_config);
     EventId m_sendEvent;
+    Time    m_simEndTimeUs;
 
 public:
     AirlineManager(wf::Config &cfg);

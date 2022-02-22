@@ -31,6 +31,9 @@ extern "C" {
 
 void sig_handler(int signum)
 {
+	if(signum == SIGSTOP)
+		exit(0);
+
 	if(signum > 1) {
 		CINFO << "Airline Caught signal " << signum << endl;
 	}
@@ -88,7 +91,7 @@ int main(const int argc, const char *argv[])
 	signal(SIGINT, sig_handler);
 	signal(SIGKILL, sig_handler);
 	signal(SIGTERM, sig_handler);
-	//signal(SIGSEGV, sig_handler);
+	signal(SIGSTOP, sig_handler);
 	signal(SIGCHLD, sig_handler);
 
 	if(SUCCESS != cl_init(MTYPE(AIRLINE, CL_MGR_ID), CL_CREATEQ)) {

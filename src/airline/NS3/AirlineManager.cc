@@ -25,6 +25,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <csignal>
 
 #include <inttypes.h>
 
@@ -401,6 +402,13 @@ void AirlineManager::setNodeSpecificParam(NodeContainer & nodes)
 	}
 }
 
+void AirlineManager::setSimulationEndTime()
+{
+    uint64_t sim_end_time = CFG_INT("simulationEndTime", 1);
+    m_simEndTimeUs = Minutes(sim_end_time);
+    fprintf(stderr, "simulation due to stop in %ld us\n", m_simEndTimeUs.GetTimeStep());
+}
+
 int AirlineManager::startNetwork(wf::Config & cfg)
 {
 	try {
@@ -408,6 +416,8 @@ int AirlineManager::startNetwork(wf::Config & cfg)
             BooleanValue (CFG_INT("macChecksumEnabled", 1)));
 		GlobalValue::Bind ("SimulatorImplementationType", 
 		   StringValue ("ns3::DefaultSimulatorImpl"));
+
+		Time::SetResolution(OPENTHREAD_RESOLUTION);
 
 		wf::Macstats::clear();
 
@@ -422,13 +432,13 @@ int AirlineManager::startNetwork(wf::Config & cfg)
         }
 
 		setNodeSpecificParam(g_ifctx.nodes);
+		setSimulationEndTime();
 
 		AirlineHelper airlineApp;
 		ApplicationContainer apps = airlineApp.Install(g_ifctx.nodes);
 		apps.Start(Seconds(0.0));
 
-		Time::SetResolution(OPENTHREAD_RESOLUTION);
-
+		ScheduleSimulationEnd();
 		ScheduleCommlineRX();
 		CINFO << "NS3 Simulator::Run initiated...\n";
         fflush(stdout);
@@ -447,6 +457,11 @@ void AirlineManager::ScheduleCommlineRX(void)
 	m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
 }
 
+void AirlineManager::ScheduleSimulationEnd(void)
+{
+	Simulator::Schedule(m_simEndTimeUs, &AirlineManager::KillSimulation, this);
+}
+
 void AirlineManager::msgReader(void)
 {
 	DEFINE_MBUF(mbuf);
@@ -462,6 +477,12 @@ void AirlineManager::msgReader(void)
 		}
 	}
 	ScheduleCommlineRX();
+}
+
+void AirlineManager::KillSimulation(void)
+{
+	fprintf(stderr, "SIMULATION ENDED\n");
+	raise(SIGSTOP);
 }
 
 AirlineManager::AirlineManager(wf::Config & cfg)
