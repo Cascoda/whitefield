@@ -1,3 +1,32 @@
+## OpenThread-specific Whitefield Guide
+
+**Setup Instructions**:
+
+The setup instructions are identical to the ones laid out in the top-level README.md.
+
+**Execute Instructions**:
+
+```
+$ cd whitefield
+
+#Run the entire simulation
+$ ./invoke_whitefield.sh config/wf_ot.cfg
+```
+Note: With OpenThread, the simulation runs in virtual time. This means that the amount of time that passes in real life is decoupled from the time that passes in the simulation. So, for example, it might take less than a second in real life for Whitefield to simulate 10 minutes of an OpenThread network.
+
+**Configuration Options**:
+
+The config file ```config/wf_ot.cfg``` contains parameters which can be modified to affect the simulation in different ways. 
+
+The most important of these are:
+* numOfNodes: Determines how many nodes will be simulated.
+* simulationEndTime: Determines how many minutes _in virtual time_ will be simulated before Whitefield terminates.
+
+
+**Gathering Logs/Data/Statistics**:
+
+Once the simulation has executed, logs can be obtained from ```log/airline.log```, and pcap files for each node from ```pcap/pkt-0-0.pcap``` (for node 0, for example). The pcap files can be opened in Wireshark.
+
 ## OpenThread-Whitefield Integration Aim
 
 Validate OpenThread claims in realistic 802.15.4 environment possibly in
