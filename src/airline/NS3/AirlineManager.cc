@@ -273,6 +273,43 @@ void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 	}
 }
 
+void AirlineManager::OTProcessStatusPush(struct msg_buf_extended *mbuf_ext)
+{
+	INFO("In OTProcessStatusPush\n");
+
+	char *   token;
+	uint16_t rloc16;
+	uint64_t ext_addr;
+
+	uint16_t len = mbuf_ext->evt.mDataLength;
+	mbuf_ext->evt.mData[len] = '\0'; //So that strtok can be used
+
+	token = strtok((char *)mbuf_ext->evt.mData, ";");
+
+	while(token != NULL)
+	{
+		fprintf(stderr, " %s\n", token);
+
+		int ret1 = sscanf(token, "rloc16=%hd", &rloc16);
+		int ret2 = sscanf(token, "extaddr=%lx", &ext_addr);
+
+		if(ret1 == 1)
+		{
+			fprintf(stderr, "Extracted rloc16\n");
+		}
+		if(ret2 == 1)
+		{
+			fprintf(stderr, "Extracted extaddr\n");
+		}
+		if(ret1 != 1 && ret2 != 1)
+		{
+			fprintf(stderr, "Didn't extract any information\n");
+		}
+
+		token = strtok(NULL, ";");
+	}
+}
+
 void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 {
 	INFO("OTmsgrecvCallback got called!\n");
@@ -282,9 +319,16 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 	struct msg_buf_extended *mbuf_ext = new struct msg_buf_extended;
 	memcpy(mbuf_ext, mbuf, sizeof(struct msg_buf_extended));
 
+	Simulator::Stop();
+
 	printEvent(&mbuf_ext->evt);
 
-	Simulator::Stop();
+	// Deal with STATUS PUSH events immediately, no scheduling needed.
+	if(mbuf_ext->evt.mEventType == OT_EVENT_TYPE_STATUS_PUSH)
+	{
+		INFO("%s RECEIVED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
+		AirlineManager::OTProcessStatusPush(mbuf_ext);
+	}
 
 	// Configure OT node. Only happens once at the start
 	if(!g_cfg_sent[mbuf_ext->evt.mNodeId]) // If node not configured yet

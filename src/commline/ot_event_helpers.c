@@ -213,9 +213,6 @@ void handleReceivedEvent(struct Event *evt)
 
 	switch(evt->mEventType)
 	{
-	case OT_EVENT_TYPE_STATUS_PUSH:
-		INFO("%s events ignored...\n", getEventTypeName(evt->mEventType));
-		break;
 	case OT_EVENT_TYPE_UART_WRITE:
 //		INFO("Log message from OpenThread:\n");
 //		for(size_t i = 0; i < evt->mDataLength; i++)
@@ -224,6 +221,7 @@ void handleReceivedEvent(struct Event *evt)
 //		}
 //		fprintf(stderr, "\n");
 		break;
+	case OT_EVENT_TYPE_STATUS_PUSH:
 	case OT_EVENT_TYPE_ALARM_FIRED:
 	case OT_EVENT_TYPE_RADIO_FRAME_TO_SIM:
 	case OT_EVENT_TYPE_RADIO_FRAME_TO_NODE:

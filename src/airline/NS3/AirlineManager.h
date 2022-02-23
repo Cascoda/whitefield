@@ -39,6 +39,7 @@ private:
     void    OTmsgrecvCallback(msg_buf_t *mbuf);
     void    OTSendAlarm(struct msg_buf_extended *mbuf);
     void    OTFrameToSim(struct msg_buf_extended *mbuf_ext);
+    void    OTProcessStatusPush(struct msg_buf_extended *mbuf_ext);
     int     phyInstall(NodeContainer &nodes);
     int     startNetwork(wf::Config &cfg);
     void    nodePos(NodeContainer const &nodes, uint16_t id, double &x, double &y, double &z);
