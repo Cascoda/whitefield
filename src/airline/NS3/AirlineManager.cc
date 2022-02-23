@@ -46,6 +46,7 @@ extern "C" {
 
 ifaceCtx_t g_ifctx;
 bool g_cfg_sent[1024] = {false};
+bool g_first_alarm_sent[1024] = {false};
 
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
 {
@@ -186,6 +187,7 @@ int AirlineManager::cmd_set_node_position(uint16_t id, char *buf, int buflen)
 
 void AirlineManager::otSendConfigUart(const uint16_t nodeID, const string ot_config)
 {
+	fprintf(stderr, "In otSendConfigUart()\n");
 	struct Event evt;
 	struct msg_buf_extended mbuf;
 	struct msg_buf_extended *mbuf_ext = &mbuf;
@@ -194,12 +196,9 @@ void AirlineManager::otSendConfigUart(const uint16_t nodeID, const string ot_con
     evt.mNodeId = nodeID;
     evt.mEventType = OT_EVENT_TYPE_UART_WRITE;
     evt.mDataLength = ot_config.length();
-    fprintf(stderr, "ot_config.length: %d\n", evt.mDataLength);
     strcpy((char *)evt.mData, ot_config.c_str());
 
     OtEventToWfBuf(mbuf_ext, &evt);
-
-//    printEvent(&evt);
 
 	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
 }
@@ -215,14 +214,11 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 
 	mbuf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(mbuf_ext->evt.mNodeId);
 	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
-	printEvent(&mbuf_ext->evt);
 
 	// Update node's status
 	setAliveNode();
 	uint64_t node_cur_time = getNodeCurTime(mbuf_ext->evt.mNodeId);
 	setNodeCurTime(mbuf_ext->evt.mNodeId, node_cur_time + mbuf_ext->evt.mDelay);
-
-	delete mbuf_ext;
 
 	// Decide whether to process next event or listen for new incoming events
 	if(Simulator::IsNextEventNow())
@@ -242,22 +238,14 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 {
 	INFO("IN OTFrameToSim\n");
+	uint32_t wfNodeId = mbuf_ext->evt.mNodeId - 1; //Nodes start at 0 in Whitefield but 1 in OpenThread
 
-	//TODO: THIS IS FAKE RIGHT NOW, JUST SENDS ALARM EVENT BACK...
-	mbuf_ext->evt.mEventType = OT_EVENT_TYPE_ALARM_FIRED;
+	//PROCESS THIS EVENT...
+    ifaceSendPacket(&g_ifctx, wfNodeId, (msg_buf_t *)mbuf_ext);
 
-	// Update delay based on node's current time and send event to OT node
-	if(getNodeCurTime(mbuf_ext->evt.mNodeId) > Simulator::Now().GetTimeStep())
-		ERROR("ASFASEOFIJAOEJFOSEJF PROOOOOOOOOBLEM!!!!!! ========ASD=FASD=F-ASD=F-\n");
-
-	mbuf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(mbuf_ext->evt.mNodeId);
-	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
-	printEvent(&mbuf_ext->evt);
-	setAliveNode();
-	uint64_t node_cur_time = getNodeCurTime(mbuf_ext->evt.mNodeId);
-	setNodeCurTime(mbuf_ext->evt.mNodeId, node_cur_time + mbuf_ext->evt.mDelay);
-
-	delete mbuf_ext;
+//	setAliveNode(); TODO: PROBABLY NEED TO SET ALIVE, BUT MAKE SURE IT CAN'T BE DONE TWICE
+    //IN A ROW. OTHERWISE WILL HAVE TO IMPLEMENTE ARRAY THAT KEEPS TRACK OF ALIVE STATUS OF EVERY
+    //INDIVIDUAL NODE
 
 	if(Simulator::IsNextEventNow())
 	{
@@ -296,10 +284,12 @@ void AirlineManager::OTProcessStatusPush(struct msg_buf_extended *mbuf_ext)
 		if(ret1 == 1)
 		{
 			fprintf(stderr, "Extracted rloc16\n");
+			setNodeShortAddr(mbuf_ext->evt.mNodeId, rloc16);
 		}
 		if(ret2 == 1)
 		{
 			fprintf(stderr, "Extracted extaddr\n");
+			setNodeExtendedAddr(mbuf_ext->evt.mNodeId, ext_addr);
 		}
 		if(ret1 != 1 && ret2 != 1)
 		{
@@ -316,18 +306,17 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 
 	Time delay;
 
-	struct msg_buf_extended *mbuf_ext = new struct msg_buf_extended;
+	struct msg_buf_extended mbuf_x;
+	struct msg_buf_extended *mbuf_ext = &mbuf_x;
+
 	memcpy(mbuf_ext, mbuf, sizeof(struct msg_buf_extended));
 
 	Simulator::Stop();
 
-	printEvent(&mbuf_ext->evt);
-
-	// Deal with STATUS PUSH events immediately, no scheduling needed.
-	if(mbuf_ext->evt.mEventType == OT_EVENT_TYPE_STATUS_PUSH)
+	// Declutter logs from STATUS PUSH events
+	if(mbuf_ext->evt.mEventType != OT_EVENT_TYPE_STATUS_PUSH)
 	{
-		INFO("%s RECEIVED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
-		AirlineManager::OTProcessStatusPush(mbuf_ext);
+		printEvent(&mbuf_ext->evt);
 	}
 
 	// Configure OT node. Only happens once at the start
@@ -342,7 +331,17 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 		delay = MicroSeconds(mbuf_ext->evt.mDelay);
 
 		switch (mbuf_ext->evt.mEventType) {
+			case OT_EVENT_TYPE_STATUS_PUSH:
+				// Deal with STATUS PUSH events immediately, no scheduling needed.
+				INFO("%s RECEIVED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
+				AirlineManager::OTProcessStatusPush(mbuf_ext);
+				break;
 			case OT_EVENT_TYPE_ALARM_FIRED:
+				if(!g_first_alarm_sent[mbuf_ext->evt.mNodeId - 1]) //Ignore the first ever alarm event
+				{
+					g_first_alarm_sent[mbuf_ext->evt.mNodeId - 1] = true;
+					break;
+				}
 				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
 				Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
 				setAsleepNode();
@@ -466,6 +465,7 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 		wf::Macstats::clear();
 
 		g_ifctx.nodes.Create (cfg.getNumberOfNodes());
+
 		CINFO << "Creating " << cfg.getNumberOfNodes() << " nodes..\n";
 		SeedManager::SetSeed(stoi(CFG("randSeed", "0xbabe"), nullptr, 0));
 
@@ -477,6 +477,7 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 
 		setNodeSpecificParam(g_ifctx.nodes);
 		setSimulationEndTime();
+		initAddressMaps();
 
 		AirlineHelper airlineApp;
 		ApplicationContainer apps = airlineApp.Install(g_ifctx.nodes);

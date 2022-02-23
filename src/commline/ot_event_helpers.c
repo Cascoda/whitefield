@@ -13,65 +13,8 @@
 
 int numOfAliveNodes = 0;
 uint64_t g_nodes_cur_time[1024] = {0}; //Stores the current virtual time of each node.
-
-/**
- * Extract a 16-bit value from a little-endian octet array
- */
-static inline uint16_t GETLE16(const uint8_t *in)
-{
-	return ((in[1] << 8) & 0xff00) | (in[0] & 0x00ff);
-}
-
-/**
- * Extract a 32-bit value from a little-endian octet array
- */
-static inline uint32_t GETLE32(const uint8_t *in)
-{
-	return (((uint32_t)in[3] << 24) + ((uint32_t)in[2] << 16) + ((uint32_t)in[1] << 8) + (uint32_t)in[0]);
-}
-
-/**
- * Extract a 64-bit value from a little-endian octet array
- */
-static inline uint64_t GETLE64(const uint8_t *in)
-{
-	return (((uint64_t)in[7] << 56) + ((uint64_t)in[6] << 48) + ((uint64_t)in[5] << 40) + ((uint64_t)in[4] << 32) +
-			((uint64_t)in[3] << 24) + ((uint64_t)in[2] << 16) + ((uint64_t)in[1] << 8) + (uint64_t)in[0]);
-}
-
-/**
- * Put a 16-bit value into a little-endian octet array
- */
-static inline void PUTLE16(uint16_t in, uint8_t *out)
-{
-	out[0] = in & 0xff;
-	out[1] = (in >> 8) & 0xff;
-}
-/**
- * Put a 32-bit value into a little-endian octet array
- */
-static inline void PUTLE32(uint32_t in, uint8_t *out)
-{
-	out[0] = in & 0xff;
-	out[1] = (in >> 8) & 0xff;
-	out[2] = (in >> 16) & 0xff;
-	out[3] = (in >> 24) & 0xff;
-}
-
-/**
- * Put a 64-bit value into a little-endian octet array
- */
-static inline void PUTLE64(uint64_t in, uint8_t *out)
-{
-	out[0] = in & 0xff;
-	out[1] = (in >> 8) & 0xff;
-	out[2] = (in >> 16) & 0xff;
-	out[3] = (in >> 24) & 0xff;
-	out[4] = (in >> 32) & 0xff;
-	out[5] = (in >> 40) & 0xff;
-	out[6] = (in >> 48) & 0xff;
-	out[7] = (in >> 56) & 0xff;
-}
+uint16_t g_nodes_short_addr[1024] = {0}; //Maps each node's id to its short address.
+uint64_t g_nodes_ext_addr[1024] = {0}; //Maps each node's id to its extended address.
 
 const char *getEventTypeName(enum EventTypes evtType)
 {
@@ -108,7 +51,7 @@ void printEvent(const struct Event *evt)
     fprintf(stderr, "evt->mData: 0x");
     for(uint16_t i = 0; i < evt->mDataLength; i++)
     {
-    	fprintf(stderr, "%x", evt->mData[i]);
+    	fprintf(stderr, "%02x", evt->mData[i]);
     }
     fprintf(stderr, "\n");
 }
@@ -202,6 +145,72 @@ void setNodeCurTime(uint32_t nodeId, uint64_t time)
 uint64_t getNodeCurTime(uint32_t nodeId)
 {
 	return g_nodes_cur_time[nodeId - 1];
+}
+
+static void initShortAddrMap(void)
+{
+	for(int i = 0; i < sizeof(g_nodes_short_addr)/sizeof(g_nodes_short_addr[0]); i++)
+	{
+		g_nodes_short_addr[i] = InvalidShortAddr;
+	}
+}
+
+static void initExtendedAddrMap(void)
+{
+	for(int i = 0; i < sizeof(g_nodes_ext_addr)/sizeof(g_nodes_ext_addr[0]); i++)
+	{
+		g_nodes_ext_addr[i] = InvalidExtendedAddr;
+	}
+}
+
+void initAddressMaps(void)
+{
+	initShortAddrMap();
+	initExtendedAddrMap();
+}
+
+void setNodeShortAddr(uint32_t nodeId, uint16_t short_addr)
+{
+	fprintf(stderr, "Setting node %d rloc: 0x%x -> 0x%x\n", nodeId, getShortAddrFromNodeId(nodeId), short_addr);
+	g_nodes_short_addr[nodeId - 1] = short_addr;
+}
+
+uint16_t getShortAddrFromNodeId(uint32_t nodeId)
+{
+	return g_nodes_short_addr[nodeId - 1];
+}
+
+uint32_t getNodeIdFromShortAddr(uint16_t short_addr)
+{
+	for(int i = 0; i < sizeof(g_nodes_short_addr)/sizeof(g_nodes_short_addr[0]); i++)
+	{
+		if(g_nodes_short_addr[i] == short_addr)
+			return (uint32_t)i;
+	}
+	fprintf(stderr, "SHORT ADDRESS NOT REGISTERED...\n");
+	return (uint32_t)-1;
+}
+
+void setNodeExtendedAddr(uint32_t nodeId, uint64_t ext_addr)
+{
+	fprintf(stderr, "Setting node %d ext_addr: 0x%"PRIx64" -> 0x%"PRIx64"\n", nodeId, getExtendedAddrFromNodeId(nodeId), ext_addr);
+	g_nodes_ext_addr[nodeId - 1] = ext_addr;
+}
+
+uint64_t getExtendedAddrFromNodeId(uint32_t nodeId)
+{
+	return g_nodes_ext_addr[nodeId - 1];
+}
+
+uint32_t getNodeIdFromExtendedAddr(uint64_t ext_addr)
+{
+	for(int i = 0; i < sizeof(g_nodes_ext_addr)/sizeof(g_nodes_ext_addr[0]); i++)
+	{
+		if(g_nodes_ext_addr[i] == ext_addr)
+			return (uint32_t)i;
+	}
+	fprintf(stderr, "SHORT ADDRESS NOT REGISTERED...\n");
+	return (uint32_t)-1;
 }
 
 void handleReceivedEvent(struct Event *evt)
