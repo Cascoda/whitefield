@@ -12,6 +12,7 @@
 #include "cl_usock.h"
 
 int numOfAliveNodes = 0;
+int numOfSpawnedNodes = 0;
 uint64_t g_nodes_cur_time[1024] = {0}; //Stores the current virtual time of each node.
 uint16_t g_nodes_short_addr[1024] = {0}; //Maps each node's id to its short address.
 uint64_t g_nodes_ext_addr[1024] = {0}; //Maps each node's id to its extended address.
@@ -124,6 +125,10 @@ void setAliveNode()
 {
 	numOfAliveNodes++;
     fprintf(stderr, "numOfAliveNodes++: %d\n", getAliveNodes());
+    if(numOfAliveNodes > numOfSpawnedNodes)
+    {
+    	fprintf(stderr, "Race condition... numOfAliveNodes > numOfSpawnedNodes\n");
+    }
 }
 
 void setAsleepNode()
@@ -135,6 +140,17 @@ void setAsleepNode()
 int getAliveNodes()
 {
 	return numOfAliveNodes;
+}
+
+int getSpawnedNodes()
+{
+	return numOfSpawnedNodes;
+}
+
+void setSpawnedNode()
+{
+	numOfSpawnedNodes++;
+	fprintf(stderr, "numOfSpawnedNodes++: %d\n", getSpawnedNodes());
 }
 
 void setNodeCurTime(uint32_t nodeId, uint64_t time)
@@ -209,7 +225,7 @@ uint32_t getNodeIdFromExtendedAddr(uint64_t ext_addr)
 		if(g_nodes_ext_addr[i] == ext_addr)
 			return (uint32_t)i;
 	}
-	fprintf(stderr, "SHORT ADDRESS NOT REGISTERED...\n");
+	fprintf(stderr, "EXTENDED ADDRESS NOT REGISTERED...\n");
 	return (uint32_t)-1;
 }
 

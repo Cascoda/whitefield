@@ -28,7 +28,313 @@
 #include <Nodeinfo.h>
 #include <Config.h>
 #include <IfaceHandler.h>
+#include <inttypes.h>
 
+static AirlineManager* airlineMgr;
+
+enum
+{
+	kFcfPanidCompression = 1 << 6,
+};
+
+enum
+{
+	kFcfSrcAddrNone  = 0 << 14,
+	kFcfSrcAddrShort = 2 << 14,
+	kFcfSrcAddrExt   = 3 << 14,
+	kFcfSrcAddrMask  = 3 << 14,
+};
+
+enum
+{
+	kFcfDstAddrNone  = 0 << 10,
+	kFcfDstAddrShort = 2 << 10,
+	kFcfDstAddrExt   = 3 << 10,
+	kFcfDstAddrMask  = 3 << 10,
+};
+
+enum
+{
+	kFcfSize = sizeof(uint16_t),
+	kDsnSize = sizeof(uint8_t),
+};
+
+typedef uint16_t PanId;
+typedef uint16_t ShortAddress;
+typedef uint64_t ExtAddress;
+
+static enum OtErrors ot_status_convert(LrWpanMcpsDataConfirmStatus confirmStatus)
+{
+	switch(confirmStatus)
+	{
+	case IEEE_802_15_4_SUCCESS:
+		return OT_ERROR_NONE;
+	case IEEE_802_15_4_CHANNEL_ACCESS_FAILURE:
+		return OT_ERROR_CHANNEL_ACCESS_FAILURE;
+	default:
+		return OT_ERROR_ABORT;
+	}
+}
+
+static Mac16Address id16toaddr(const uint16_t id)
+{
+    Mac16Address mac;
+
+    uint8_t idstr[2];
+    uint8_t *ptr = (uint8_t*)&id;
+
+    idstr[1] = ptr[0];
+    idstr[0] = ptr[1];
+
+    mac.CopyFrom(idstr);
+
+    return mac;
+};
+
+static Mac64Address id64toaddr(const uint64_t id)
+{
+    Mac64Address mac;
+
+    uint8_t idstr[8];
+    uint8_t *ptr = (uint8_t*)&id;
+
+    idstr[7] = ptr[0];
+    idstr[6] = ptr[1];
+    idstr[5] = ptr[2];
+    idstr[4] = ptr[3];
+    idstr[3] = ptr[4];
+    idstr[2] = ptr[5];
+    idstr[1] = ptr[6];
+    idstr[0] = ptr[7];
+
+    mac.CopyFrom(idstr);
+
+    return mac;
+};
+
+static uint16_t addr16toid(const Mac16Address addr)
+{
+    uint16_t id = 0;
+    uint8_t str[2];
+    uint8_t *ptr = (uint8_t *)&id;
+
+    addr.CopyTo(str);
+
+    ptr[1] = str[0];
+    ptr[0] = str[1];
+
+    return id;
+}
+
+static uint64_t addr64toid(const Mac64Address addr)
+{
+    uint64_t id = 0;
+    uint8_t str[8];
+    uint8_t *ptr = (uint8_t *)&id;
+
+    addr.CopyTo(str);
+
+    ptr[7] = str[0];
+    ptr[6] = str[1];
+    ptr[5] = str[2];
+    ptr[4] = str[3];
+    ptr[3] = str[4];
+    ptr[2] = str[5];
+    ptr[1] = str[6];
+    ptr[0] = str[7];
+
+    return id;
+}
+
+static uint16_t getFrameControlField(msg_buf_extended *msg_ext)
+{
+	struct RadioMessage *radio_msg = (struct RadioMessage *)msg_ext->evt.mData;
+	uint16_t fcf = GETLE16(radio_msg->psdu);
+	return fcf;
+}
+
+static LrWpanAddressMode getSourceAddressMode(msg_buf_extended *msg_ext)
+{
+	uint16_t srcAddrMode = getFrameControlField(msg_ext) & kFcfSrcAddrMask;
+	if(srcAddrMode == kFcfSrcAddrNone)
+	{
+		return NO_PANID_ADDR;
+	}
+	else if(srcAddrMode == kFcfSrcAddrShort)
+	{
+		return SHORT_ADDR;
+	}
+	else
+	{
+		return EXT_ADDR;
+	}
+}
+
+static LrWpanAddressMode getDestinationAddressMode(msg_buf_extended *msg_ext)
+{
+	uint16_t dstAddrMode = getFrameControlField(msg_ext) & kFcfDstAddrMask;
+	if(dstAddrMode == kFcfDstAddrNone)
+	{
+		return NO_PANID_ADDR;
+	}
+	else if(dstAddrMode == kFcfDstAddrShort)
+	{
+		return SHORT_ADDR;
+	}
+	else
+	{
+		return EXT_ADDR;
+	}
+}
+
+static bool isDstAddrPresent(uint16_t aFcf)
+{
+	return (aFcf & kFcfDstAddrMask) != kFcfDstAddrNone;
+}
+
+static bool isDstPanIdPresent(uint16_t aFcf)
+{
+	//TODO: Assuming no header ie support
+	return isDstAddrPresent(aFcf);
+}
+
+static bool isSrcPanIdPresent(uint16_t aFcf)
+{
+	//TODO: Assuming no header ie support
+	bool srcPanIdPresent = false;
+
+	if((aFcf & kFcfSrcAddrMask) != kFcfSrcAddrNone && (aFcf & kFcfPanidCompression) == 0)
+	{
+		srcPanIdPresent = true;
+	}
+
+	return srcPanIdPresent;
+}
+
+static uint8_t findDstAddrIndex(msg_buf_extended *msg_ext)
+{
+	return kFcfSize + kDsnSize + (isDstPanIdPresent(getFrameControlField(msg_ext)) ? sizeof(PanId) : 0);
+}
+
+static uint8_t findSrcAddrIndex(msg_buf_extended *msg_ext)
+{
+	uint8_t index = 0;
+	uint16_t fcf = getFrameControlField(msg_ext);
+
+	index += kFcfSize + kDsnSize;
+
+	if(isDstPanIdPresent(fcf))
+	{
+		index += sizeof(PanId);
+	}
+
+	switch (fcf & kFcfDstAddrMask)
+	{
+	case kFcfDstAddrShort:
+		index += sizeof(ShortAddress);
+		break;
+	case kFcfDstAddrExt:
+		index += sizeof(ExtAddress);
+		break;
+	}
+
+	if(isSrcPanIdPresent(fcf))
+	{
+		index += sizeof(PanId);
+	}
+
+	return index;
+}
+
+static Mac64Address extendedAddr(uint64_t addr)
+{
+	return id64toaddr(addr);
+}
+
+static Mac16Address shortAddr(uint16_t addr)
+{
+	return id16toaddr(addr);
+}
+
+static void getDestinationExtendedAddress(msg_buf_extended *msg_ext, Mac64Address *addr)
+{
+	struct RadioMessage *radio_msg = (struct RadioMessage *)msg_ext->evt.mData;
+
+	uint8_t index = findDstAddrIndex(msg_ext);
+
+	switch (getFrameControlField(msg_ext) & kFcfDstAddrMask)
+	{
+		case kFcfDstAddrShort:
+			fprintf(stderr, "WRONG FUNCTION CALL, DESTINATION ADDRESS IS A SHORT ADDRESS...\n");
+			break;
+		case kFcfDstAddrExt:
+			*addr = extendedAddr(GETLE64(&radio_msg->psdu[index]));
+			break;
+		default:
+			fprintf(stderr, "PARSING OF ADDRESS FAILED.\n");
+			break;
+	}
+}
+
+static void getDestinationShortAddress(msg_buf_extended *msg_ext, Mac16Address *addr)
+{
+	struct RadioMessage *radio_msg = (struct RadioMessage *)msg_ext->evt.mData;
+
+	uint8_t index = findDstAddrIndex(msg_ext);
+
+	switch (getFrameControlField(msg_ext) & kFcfDstAddrMask)
+	{
+		case kFcfDstAddrShort:
+			*addr = shortAddr(GETLE16(&radio_msg->psdu[index]));
+			break;
+		case kFcfDstAddrExt:
+			fprintf(stderr, "WRONG FUNCTION CALL, SOURCE ADDRESS IS AN EXTENDED ADDRESS...\n");
+			break;
+		default:
+			fprintf(stderr, "PARSING OF ADDRESS FAILED.\n");
+			break;
+	}
+}
+
+static void getSourceExtendedAddress(msg_buf_extended *msg_ext, Mac64Address *addr)
+{
+	struct RadioMessage *radio_msg = (struct RadioMessage *)msg_ext->evt.mData;
+
+	uint8_t index = findSrcAddrIndex(msg_ext);
+
+	switch (getFrameControlField(msg_ext) & kFcfSrcAddrMask)
+	{
+		case kFcfSrcAddrShort:
+			fprintf(stderr, "WRONG FUNCTION CALL, SOURCE ADDRESS IS A SHORT ADDRESS...\n");
+			break;
+		case kFcfSrcAddrExt:
+			*addr = extendedAddr(GETLE64(&radio_msg->psdu[index]));
+			break;
+		default:
+			fprintf(stderr, "PARSING OF ADDRESS FAILED.\n");
+			break;
+	}
+}
+
+static void getSourceShortAddress(msg_buf_extended *msg_ext, Mac16Address *addr)
+{
+	struct RadioMessage *radio_msg = (struct RadioMessage *)msg_ext->evt.mData;
+
+	uint8_t index = findSrcAddrIndex(msg_ext);
+
+	switch (getFrameControlField(msg_ext) & kFcfSrcAddrMask)
+	{
+		case kFcfSrcAddrShort:
+			*addr = shortAddr(GETLE16(&radio_msg->psdu[index]));
+			break;
+		case kFcfSrcAddrExt:
+			fprintf(stderr, "WRONG FUNCTION CALL, SOURCE ADDRESS IS AN EXTENDED ADDRESS...\n");
+			break;
+		default:
+			fprintf(stderr, "PARSING OF ADDRESS FAILED.\n");
+			break;
+	}
+}
 static Ptr<LrWpanNetDevice> getDev(ifaceCtx_t *ctx, int id)
 {
     Ptr<Node> node = ctx->nodes.Get(id); 
@@ -62,51 +368,245 @@ static uint8_t wf_ack_status(LrWpanMcpsDataConfirmStatus status)
     }
 }
 
-static uint16_t addr2id(const Mac16Address addr)
+static void OTSendTxDone(struct msg_buf_extended *msg_buf_ext, uint32_t OtSrcNodeId)
 {
-    uint16_t id=0;
-    uint8_t str[2], *ptr=(uint8_t *)&id;
-    addr.CopyTo(str);
-    ptr[1] = str[0];
-    ptr[0] = str[1];
-    return id;
+	fprintf(stderr, "In OTSendTxDone..., sim time: %ld\n", Simulator::Now().GetTimeStep());
+
+	msg_buf_ext->evt.mEventType = OT_EVENT_TYPE_RADIO_TX_DONE;
+	msg_buf_ext->evt.mNodeId = OtSrcNodeId;
+    msg_buf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(msg_buf_ext->evt.mNodeId);
+    printEvent(&msg_buf_ext->evt);
+
+	fprintf(stderr, "SENDING TX_DONE TO NODE %d...\n", OtSrcNodeId);
+	cl_sendto_q(MTYPE(STACKLINE, msg_buf_ext->evt.mNodeId - 1), (msg_buf_t *)msg_buf_ext, sizeof(struct msg_buf_extended));
+
+	// Update node's status
+	setAliveNode();
+	uint64_t node_cur_time = getNodeCurTime(msg_buf_ext->evt.mNodeId);
+	setNodeCurTime(msg_buf_ext->evt.mNodeId, node_cur_time + msg_buf_ext->evt.mDelay);
+
+	// Decide whether to process next event or listen for new incoming events
+	if(Simulator::IsNextEventNow())
+	{
+		// Don't do anything special, cause will be processed automatically.
+		INFO("PROCESS NEXT EVENT...\n");
+	}
+	else
+	{
+		// We don't want to process the next event quite yet. Instead,
+		// want to go back to listening...
+		INFO("BACK TO LISTENING...\n");
+		airlineMgr->ScheduleCommlineRX();
+	}
+}
+
+static void OTSendFrameToNode(struct msg_buf_extended *msg_buf_ext, uint32_t OtDstNodeId)
+{
+	fprintf(stderr, "In OTSendFrameToNode..., sim time: %ld\n", Simulator::Now().GetTimeStep());
+
+	//TODO: Get a real RSSI value
+    int8_t dummy_rssi = -50;
+
+	msg_buf_ext->evt.mEventType = OT_EVENT_TYPE_RADIO_FRAME_TO_NODE;
+	msg_buf_ext->evt.mParam1 = dummy_rssi;
+    msg_buf_ext->evt.mNodeId = OtDstNodeId;
+    msg_buf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(msg_buf_ext->evt.mNodeId);
+    printEvent(&msg_buf_ext->evt);
+
+	fprintf(stderr, "SENDING FRAME TO NODE %d...\n", OtDstNodeId);
+	cl_sendto_q(MTYPE(STACKLINE, msg_buf_ext->evt.mNodeId - 1), (msg_buf_t *)msg_buf_ext, sizeof(struct msg_buf_extended));
+
+	// Update node's status
+	setAliveNode();
+	uint64_t node_cur_time = getNodeCurTime(msg_buf_ext->evt.mNodeId);
+	setNodeCurTime(msg_buf_ext->evt.mNodeId, node_cur_time + msg_buf_ext->evt.mDelay);
+
+	// Decide whether to process next event or listen for new incoming events
+	if(Simulator::IsNextEventNow())
+	{
+		// Don't do anything special, cause will be processed automatically.
+		INFO("PROCESS NEXT EVENT...\n");
+	}
+	else
+	{
+		// We don't want to process the next event quite yet. Instead,
+		// want to go back to listening...
+		INFO("BACK TO LISTENING...\n");
+		airlineMgr->ScheduleCommlineRX();
+	}
 }
 
 static void DataConfirm (int id, McpsDataConfirmParams params)
 {
-    uint16_t dst_id = addr2id(params.m_addrShortDstAddr);
-    uint8_t status;
+	fprintf(stderr, "In DataConfirm..., sim time: %ld\n", Simulator::Now().GetTimeStep());
+	fprintf(stderr, "Confirm status: %d\n", params.m_status);
 
-    if(dst_id == 0xffff) {
-        return;
-    }
+	fprintf(stderr, "\tmsdu_handle: %d\n", params.m_msduHandle);
+//	fprintf(stderr, "\tretries: %d\n", params.m_retries);
+//	fprintf(stderr, "\tdstAddrMode: %d\n", params.m_dstAddrMode);
+//	fprintf(stderr, "\tpktSz: %d\n", params.m_pktSz);
+//	fprintf(stderr, "\taddrShortDstAddr: %d\n", addr16toid(params.m_addrShortDstAddr));
+
+    DEFINE_MBUF(mbuf);
+
+    struct msg_buf_extended *mbuf_ext = (struct msg_buf_extended *)mbuf;
+    struct Event evt;
+
+    //Insert data confirm status into data of event
+    evt.mDataLength = 1;
+    evt.mData[0] = ot_status_convert(params.m_status);
+    evt.mNodeId = params.m_msduHandle; //HACK: see lrwpanSendPacket
+    OtEventToWfBuf(mbuf_ext, &evt);
+
+    fprintf(stderr, "Passing confirm, back to node %d\n", evt.mNodeId);
+	OTSendTxDone(mbuf_ext, evt.mNodeId);
+
 #if 0
-    INFO << "Sending ACK status" 
+    INFO << "Sending ACK status"
          << " src=" << id << " dst=" << dst_id
          << " status=" << params.m_status
          << " retries=" << (int)params.m_retries
          << " pktSize(inc mac-hdr)=" << params.m_pktSz << "\n";
     fflush(stdout);
 #endif
-    status = wf_ack_status(params.m_status);
-    SendAckToStackline(id, dst_id, status, params.m_retries+1);
 }
 
 static void DataIndication (int id, McpsDataIndicationParams params,
                             Ptr<Packet> p)
 {
+	INFO("DataIndication called!, sim time: %ld\n", Simulator::Now().GetTimeStep());
+
+//	fprintf(stderr, "\tsrcAddrMode: %d\n", params.m_srcAddrMode);
+//	fprintf(stderr, "\tsrcPanId: %d\n", params.m_srcPanId);
+//	fprintf(stderr, "\tsrcAddr: %d\n", addr2id(params.m_srcAddr));
+//	fprintf(stderr, "\tmdstAddrMode: %d\n", params.m_dstAddrMode);
+//	fprintf(stderr, "\tdstPanId: 0x%x\n", params.m_dstPanId);
+//	fprintf(stderr, "\tdstAddr: %d\n", addr2id(params.m_dstAddr));
+//	fprintf(stderr, "\tmpduLinkQuality: %d\n", params.m_mpduLinkQuality);
+//	fprintf(stderr, "\tDSN: %d\n", params.m_dsn);
+
     DEFINE_MBUF(mbuf);
+
+    struct msg_buf_extended *mbuf_ext = (struct msg_buf_extended *)mbuf;
+    struct Event evt;
+
+    uint32_t dstNodeId;
+    uint32_t OtDstNodeId;
+    uint32_t srcNodeId;
+    uint32_t OtSrcNodeId;
+    bool dispatchedByDstAddr = false;
 
     if (p->GetSize() >= COMMLINE_MAX_BUF) {
         CERROR << "Pkt len" << p->GetSize() << " bigger than\n";
         return;
     }
 
-    mbuf->len           = p->CopyData(mbuf->buf, COMMLINE_MAX_BUF);
-    mbuf->src_id        = addr2id(params.m_srcAddr);
-    mbuf->dst_id        = addr2id(params.m_dstAddr);
-    mbuf->info.sig.lqi  = params.m_mpduLinkQuality;
-    SendPacketToStackline(id, mbuf);
+    //Extract packet
+    evt.mDataLength = p->GetSize();
+    p->CopyData(evt.mData, evt.mDataLength);
+    OtEventToWfBuf(mbuf_ext, &evt);
+
+    //Extract the source address
+    if(getSourceAddressMode(mbuf_ext) == EXT_ADDR)
+    {
+    	Mac64Address src_addr;
+    	uint64_t src_extended;
+    	//Extract the source address
+    	getSourceExtendedAddress(mbuf_ext, &src_addr);
+
+    	//Save it as a uint64_t
+    	src_extended = addr64toid(src_addr);
+
+    	//Deduce the nodeId of the source node
+    	srcNodeId = getNodeIdFromExtendedAddr(src_extended);
+    	OtSrcNodeId = srcNodeId + 1;
+    	fprintf(stderr, "EXTENDED SOURCE ADDRESS: 0x%" PRIx64 ", corresponding to node %d\n", src_extended, OtSrcNodeId);
+    }
+    else if(getSourceAddressMode(mbuf_ext) == SHORT_ADDR)
+    {
+    	Mac16Address src_addr;
+    	uint16_t src_short;
+    	//Extract the source address
+    	getSourceShortAddress(mbuf_ext, &src_addr);
+
+    	//Save it as a uint64_t
+    	src_short = addr16toid(src_addr);
+
+    	//Deduce the nodeId of the source node
+    	srcNodeId = getNodeIdFromShortAddr(src_short);
+    	OtSrcNodeId = srcNodeId + 1;
+    	fprintf(stderr, "SHORT SOURCE ADDRESS: 0x%x, corresponding to node %d\n", src_short, OtSrcNodeId);
+    }
+    else
+    {
+    	fprintf(stderr, "PROBLEM WITH SOURCE ADDRESS....???\n");
+    }
+
+    if(getDestinationAddressMode(mbuf_ext) == EXT_ADDR)
+    {
+    	//The message should only be dispatched to the target node with the extaddr
+    	Mac64Address dst_addr;
+    	uint64_t dst_extended;
+
+    	//Extract the destination address
+    	getDestinationExtendedAddress(mbuf_ext, &dst_addr);
+
+    	//Save it as a uint64_t
+    	dst_extended = addr64toid(dst_addr);
+
+    	//Deduce the nodeId of the destination node
+    	dstNodeId = getNodeIdFromExtendedAddr(dst_extended);
+    	OtDstNodeId = dstNodeId + 1;
+
+    	fprintf(stderr, "dstAddrMode: EXT_ADDR, dst_extended: 0x%" PRIx64 ", dst_node_id: %d\n", dst_extended, OtDstNodeId);
+    	OTSendFrameToNode(mbuf_ext, OtDstNodeId);
+
+    	dispatchedByDstAddr = true;
+    }
+    else if(getDestinationAddressMode(mbuf_ext) == SHORT_ADDR)
+    {
+    	Mac16Address dst_addr;
+    	uint16_t dst_short;
+
+    	//Extract the destination address
+    	getDestinationShortAddress(mbuf_ext, &dst_addr);
+
+    	//Save it as a uint16_t
+    	dst_short = addr16toid(dst_addr);
+
+    	if(dst_short != BroadcastShortAddr)
+    	{
+    		//Unicast message should only be dispatched to target node with the short address
+    		//Deduce the nodeId of the destination node
+    		dstNodeId = getNodeIdFromShortAddr(dst_short);
+    		OtDstNodeId = dstNodeId + 1;
+
+    		//TODO: Add ability to handle there being multiple nodes with the same short address
+    		fprintf(stderr, "dstAddrMod: SHORT_ADDR, dst_short: 0x%x, dst_node_id: %d\n", dst_short, OtDstNodeId);
+    		OTSendFrameToNode(mbuf_ext, OtDstNodeId);
+
+    		dispatchedByDstAddr = true;
+    	}
+    }
+    else
+    {
+    	fprintf(stderr, "PROBLEM WITH DESTINATION ADDRESS PARSING...\n");
+    }
+
+    if(!dispatchedByDstAddr)
+    {
+    	//Send to every node
+    	fprintf(stderr, "BROADCAST: Sending to every node that is not the source node (%d in total)\n", getSpawnedNodes() - 1);
+    	for(uint32_t i = 0; i < (uint32_t)getSpawnedNodes(); i++)
+    	{
+    		if(i == srcNodeId)
+    		{
+    			fprintf(stderr, "Skipping node %d because source node\n", srcNodeId + 1);
+    			continue;
+    		}
+    		OTSendFrameToNode(mbuf_ext, i + 1); //+1 because node 0 in Whitefield corresponds to node 1 in OT.
+    	}
+    }
 }
 
 static void setShortAddress(Ptr<LrWpanNetDevice> dev, uint16_t id)
@@ -172,7 +672,6 @@ static int setAllNodesParam(NodeContainer & nodes)
 
         if(!macAdd) {
             dev->GetMac()->SetMacHeaderAdd(macAdd);
-
             //In case where stackline itself add mac header, the airline needs
             //to be set in promiscuous mode so that all the packets with
             //headers are transmitted as is to the stackline on reception
@@ -250,19 +749,10 @@ static void lrwpanCleanup(ifaceCtx_t *ctx)
 {
 }
 
-static Mac16Address id2addr(const uint16_t id)
-{
-    Mac16Address mac;
-    uint8_t idstr[2], *ptr=(uint8_t*)&id;
-    idstr[1] = ptr[0];
-    idstr[0] = ptr[1];
-    mac.CopyFrom(idstr);
-    return mac;
-};
-
 static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 {
-    int numNodes = stoi(CFG("numOfNodes"));
+	struct msg_buf_extended *mbuf_ext = (struct msg_buf_extended *)mbuf;
+
     McpsDataRequestParams params;
     Ptr<LrWpanNetDevice> dev = getDev(ctx, id);
     Ptr<Packet> p0;
@@ -272,30 +762,33 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
         return FAILURE;
     }
 
-    if(mbuf->flags & MBUF_IS_CMD) {
-        CERROR << "MBUF CMD not handled in Airline... No need!" << endl;
-        return FAILURE;
-    }
+    p0 = Create<Packet> (mbuf_ext->evt.mData, (uint32_t)mbuf_ext->evt.mDataLength);
 
-    p0 = Create<Packet> (mbuf->buf, (uint32_t)mbuf->len);
-    params.m_srcAddrMode = SHORT_ADDR;
-    params.m_dstAddrMode = SHORT_ADDR;
-    params.m_dstPanId    = CFG_PANID;
-    params.m_dstAddr     = id2addr(mbuf->dst_id);
-    params.m_msduHandle  = 0;
-    params.m_txOptions   = TX_OPTION_NONE;
-    if(mbuf->dst_id != 0xffff) {
-        params.m_txOptions = TX_OPTION_ACK;
-    }
+//    params.m_srcAddrMode = getSourceAddressMode(mbuf_ext);
+//    params.m_dstAddrMode = getDestinationAddressMode(mbuf_ext);
+//    params.m_dstPanId    = CFG_PANID;
+//    params.m_dstAddr     = getDestinationAddress(mbuf_ext);
+//    fprintf(stderr, "srcAddrMode: %d\n", params.m_srcAddrMode);
+//    fprintf(stderr, "dstAddrMode: %d\n", params.m_dstAddrMode);
+//    fprintf(stderr, "dstPanId: 0x%x\n", params.m_dstPanId);
+//
+//    Address dst_addr;
+//    getDestinationAddress(mbuf_ext, &dst_addr);
+//    if(dst_addr != NULL)
+//    {
+//    	params.m_dstExtAddr = dst_addr;
+//    	PRINT THE ADDRESS TO VERIFY!!!!!
+//    }
 
-    // If the src node is in promiscuous mode then disable L2-ACK 
-    if(IN_RANGE(mbuf->src_id, 0, numNodes)) {
-        wf::Nodeinfo *ni=NULL;
-        ni = WF_config.get_node_info(mbuf->src_id);
-        if(ni && ni->getPromisMode()) {
-            params.m_txOptions   = TX_OPTION_NONE;
-        }
-    }
+    //TODO: HACK which allows the DataConfirm to know which Node sent the data request.
+    //Maybe figure out a better way to do this, eventually?
+    params.m_msduHandle  = mbuf_ext->evt.mNodeId;
+
+//    params.m_txOptions   = TX_OPTION_NONE;
+//    if(mbuf->dst_id != 0xffff) {
+//        params.m_txOptions = TX_OPTION_ACK;
+//    }
+
 #if 0
     INFO << "TX DATA: "
          << " src_id=" << id
@@ -305,9 +798,17 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
     fflush(stdout);
 #endif
 
+    INFO("In lrwpanSendPacket\n");
+
     Simulator::ScheduleNow (&LrWpanMac::McpsDataRequest,
             dev->GetMac(), params, p0);
+
     return SUCCESS;
+}
+
+static void lrwpanSaveAirlineMgr (ifaceCtx_t *ctx, AirlineManager* mgr_p)
+{
+	airlineMgr = mgr_p;
 }
 
 ifaceApi_t lrwpanIface = {
@@ -317,5 +818,6 @@ ifaceApi_t lrwpanIface = {
     setAddress     : lrwpanSetAddress,
     sendPacket     : lrwpanSendPacket,
     cleanup        : lrwpanCleanup,
+	savePtr        : lrwpanSaveAirlineMgr,
 };
 

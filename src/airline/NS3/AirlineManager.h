@@ -34,6 +34,8 @@ extern "C" {
 using namespace ns3;
 
 class AirlineManager {
+public:
+    void    ScheduleCommlineRX(void);
 private:
     void    msgrecvCallback(msg_buf_t *mbuf);
     void    OTmsgrecvCallback(msg_buf_t *mbuf);
@@ -55,7 +57,6 @@ private:
     void    setSimulationEndTime(void);
     void    msgReader(void);
     void    KillSimulation(void);
-    void    ScheduleCommlineRX(void);
     void    ScheduleSimulationEnd(void);
     void    otSendConfigUart(const uint16_t nodeID, const string ot_config);
     EventId m_sendEvent;

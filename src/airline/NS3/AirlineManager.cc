@@ -346,6 +346,7 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 				Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
 				setAsleepNode();
 				break;
+			case OT_EVENT_TYPE_RADIO_FRAME_ACK_TO_SIM:
 			case OT_EVENT_TYPE_RADIO_FRAME_TO_SIM:
 				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
 				Simulator::Schedule(delay, &AirlineManager::OTFrameToSim, this, mbuf_ext);

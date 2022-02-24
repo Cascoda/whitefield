@@ -24,6 +24,7 @@
 #include <ns3/ptr.h>
 #include <ns3/net-device.h>
 #include <ns3/node-container.h>
+#include <AirlineManager.h>
 
 #if PLC
 #include <ns3/plc-node.h>
@@ -32,6 +33,7 @@ typedef std::vector<ns3::Ptr<ns3::PLC_Node> > PLC_NodeList;
 
 extern "C" {
 #include "commline/commline.h"
+#include "commline/ot_event_helpers.h"
 }
 
 using namespace ns3;
@@ -51,6 +53,7 @@ typedef struct _iface_ {
     int (*setAddress)(ifaceCtx_t *ctx, int id, const char *buf, int sz);
     int (*sendPacket)(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf);
     void (*cleanup)(ifaceCtx_t *ctx);
+    void (*savePtr)(ifaceCtx_t *ctx, AirlineManager* mgr_p);
 
     uint8_t inited : 1;
 } ifaceApi_t;

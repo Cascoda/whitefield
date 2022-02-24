@@ -70,6 +70,13 @@ static inline void PUTLE64(uint64_t in, uint8_t *out)
 	out[7] = (in >> 56) & 0xff;
 }
 
+enum OtErrors
+{
+	OT_ERROR_NONE = 0,
+	OT_ERROR_ABORT = 11,
+	OT_ERROR_CHANNEL_ACCESS_FAILURE = 15,
+};
+
 enum EventTypes
 {
     OT_EVENT_TYPE_ALARM_FIRED            = 0,
@@ -144,6 +151,9 @@ void setAliveNode();
 void setAsleepNode();
 int getAliveNodes();
 
+int getSpawnedNodes();
+void setSpawnedNode();
+
 void setNodeCurTime(uint32_t nodeId, uint64_t time);
 uint64_t getNodeCurTime(uint32_t nodeId);
 
@@ -155,7 +165,7 @@ uint32_t getNodeIdFromShortAddr(uint16_t short_addr);
 
 void setNodeExtendedAddr(uint32_t nodeId, uint64_t ext_addr);
 uint64_t getExtendedAddrFromNodeId(uint32_t nodeId);
-uint32_t getNodeIdFromExtendedAddr(uint64_t short_addr);
+uint32_t getNodeIdFromExtendedAddr(uint64_t ext_addr);
 
 // Handles events received from OT nodes.
 void handleReceivedEvent(struct Event *evt);

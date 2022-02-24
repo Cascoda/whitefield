@@ -144,6 +144,7 @@ void Config::spawnStackline(const uint16_t nodeID)
 		ERROR("Failure sending command to forker\n");
 	}
 
+	setSpawnedNode();
 	setAliveNode();
     ot_init(nodeID);
 
