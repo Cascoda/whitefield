@@ -75,7 +75,7 @@ ns3:
 ns3_clean:
 	$(MAKE) -C $(AIRLINE_NS3) clean
 
-clean: ns3_clean openthread_clean
+clean: 
 	@rm -rf bin log pcap
 
 allclean: $(STACKLINE_DEPCLEAN)

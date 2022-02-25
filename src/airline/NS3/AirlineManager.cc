@@ -512,9 +512,9 @@ void AirlineManager::msgReader(void)
 {
 	DEFINE_MBUF(mbuf);
 	while(1) {
-		cl_recvfrom_q(MTYPE(AIRLINE,CL_MGR_ID),
+		int rcvLen = cl_recvfrom_q(MTYPE(AIRLINE,CL_MGR_ID),
                 mbuf, sizeof(mbuf_buf), CL_FLAG_NOWAIT);
-		if(mbuf->len) {
+		if(rcvLen >= (int)sizeof(msg_buf_extended)) {
 			INFO("msgReader, sim time: %ld, aliveNodes: %d\n", Simulator::Now().GetTimeStep(), getAliveNodes());
 			OTmsgrecvCallback(mbuf);
 			usleep(1);
