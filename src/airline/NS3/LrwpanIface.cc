@@ -501,9 +501,12 @@ static void DataIndication (int id, McpsDataIndicationParams params,
         return;
     }
 
+    struct RadioMessage *radio_msg = (struct RadioMessage *)evt.mData;
+
     //Extract packet
-    evt.mDataLength = p->GetSize();
-    p->CopyData(evt.mData, evt.mDataLength);
+    evt.mDataLength = p->GetSize() + sizeof(radio_msg->channel);
+    radio_msg->channel = 11;
+    p->CopyData(radio_msg->psdu, evt.mDataLength);
     OtEventToWfBuf(mbuf_ext, &evt);
 
     //Extract the source address
@@ -762,7 +765,8 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
         return FAILURE;
     }
 
-    p0 = Create<Packet> (mbuf_ext->evt.mData, (uint32_t)mbuf_ext->evt.mDataLength);
+    struct RadioMessage *radio_msg = (struct RadioMessage *)mbuf_ext->evt.mData;
+    p0 = Create<Packet> (radio_msg->psdu, (uint32_t)mbuf_ext->evt.mDataLength-sizeof(radio_msg->channel));
 
 //    params.m_srcAddrMode = getSourceAddressMode(mbuf_ext);
 //    params.m_dstAddrMode = getDestinationAddressMode(mbuf_ext);

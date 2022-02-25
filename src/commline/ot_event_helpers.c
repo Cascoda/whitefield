@@ -155,11 +155,21 @@ void setSpawnedNode()
 
 void setNodeCurTime(uint32_t nodeId, uint64_t time)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return;
+	}
 	g_nodes_cur_time[nodeId - 1] = time;
 }
 
 uint64_t getNodeCurTime(uint32_t nodeId)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return (uint64_t)-1;
+	}
 	return g_nodes_cur_time[nodeId - 1];
 }
 
@@ -187,12 +197,22 @@ void initAddressMaps(void)
 
 void setNodeShortAddr(uint32_t nodeId, uint16_t short_addr)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return;
+	}
 	fprintf(stderr, "Setting node %d rloc: 0x%x -> 0x%x\n", nodeId, getShortAddrFromNodeId(nodeId), short_addr);
 	g_nodes_short_addr[nodeId - 1] = short_addr;
 }
 
 uint16_t getShortAddrFromNodeId(uint32_t nodeId)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return (uint16_t)-1;
+	}
 	return g_nodes_short_addr[nodeId - 1];
 }
 
@@ -209,12 +229,22 @@ uint32_t getNodeIdFromShortAddr(uint16_t short_addr)
 
 void setNodeExtendedAddr(uint32_t nodeId, uint64_t ext_addr)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return;
+	}
 	fprintf(stderr, "Setting node %d ext_addr: 0x%"PRIx64" -> 0x%"PRIx64"\n", nodeId, getExtendedAddrFromNodeId(nodeId), ext_addr);
 	g_nodes_ext_addr[nodeId - 1] = ext_addr;
 }
 
 uint64_t getExtendedAddrFromNodeId(uint32_t nodeId)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return (uint64_t)-1;
+	}
 	return g_nodes_ext_addr[nodeId - 1];
 }
 
