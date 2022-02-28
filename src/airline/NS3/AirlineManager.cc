@@ -47,6 +47,8 @@ extern "C" {
 ifaceCtx_t g_ifctx;
 bool g_cfg_sent[1024] = {false};
 bool g_first_alarm_sent[1024] = {false};
+bool g_skip_msgrecv_listen = false;
+bool g_exit_sim = false;
 
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
 {
@@ -207,6 +209,7 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 {
 	INFO("IN OTSendAlarm\n");
 	fprintf(stderr, "sim time: %ld\n", Simulator::Now().GetTimeStep());
+	printEvent(&mbuf_ext->evt);
 
 	// Update delay based on node's current time and send event to OT node
 	if(getNodeCurTime(mbuf_ext->evt.mNodeId) > Simulator::Now().GetTimeStep())
@@ -225,20 +228,28 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 	{
 		// Don't do anything special, cause will be processed automatically.
 		INFO("PROCESS NEXT EVENT...\n");
+		g_skip_msgrecv_listen = true;
+	Simulator::Cancel (m_sendEvent);
 	}
 	else
 	{
 		// We don't want to process the next event quite yet. Instead,
 		// want to go back to listening...
 		INFO("BACK TO LISTENING...\n");
+		g_skip_msgrecv_listen = false;
+		fprintf(stderr, "ScheduleCommlineRX() OTSendAlarm\n");
 		ScheduleCommlineRX();
 	}
+
+	delete mbuf_ext;
 }
 
 void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 {
 	INFO("IN OTFrameToSim\n");
 	uint32_t wfNodeId = mbuf_ext->evt.mNodeId - 1; //Nodes start at 0 in Whitefield but 1 in OpenThread
+
+	printEvent(&mbuf_ext->evt);
 
 	//PROCESS THIS EVENT...
     ifaceSendPacket(&g_ifctx, wfNodeId, (msg_buf_t *)mbuf_ext);
@@ -251,12 +262,16 @@ void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 	{
 		// Don't do anything special, cause will be processed automatically.
 		INFO("PROCESS NEXT EVENT...\n");
+		g_skip_msgrecv_listen = true;
+	Simulator::Cancel (m_sendEvent);
 	}
 	else
 	{
 		// We don't want to process the next event quite yet. Instead,
 		// want to go back to listening...
 		INFO("BACK TO LISTENING...\n");
+		g_skip_msgrecv_listen = false;
+		fprintf(stderr, "ScheduleCommlineRX() OTFrameToSim\n");
 		ScheduleCommlineRX();
 	}
 }
@@ -306,8 +321,7 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 
 	Time delay;
 
-	struct msg_buf_extended mbuf_x;
-	struct msg_buf_extended *mbuf_ext = &mbuf_x;
+	struct msg_buf_extended *mbuf_ext = new struct msg_buf_extended;
 
 	memcpy(mbuf_ext, mbuf, sizeof(struct msg_buf_extended));
 
@@ -359,13 +373,16 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 	if(getAliveNodes() == 0)
 	{
 		INFO("PROCESSING TIME...\n");
+		g_skip_msgrecv_listen = true;
+	Simulator::Cancel (m_sendEvent);
 	}
 	else
 	{
+		fprintf(stderr, "ScheduleCommlineRx() OTmsgrecvCallback\n");
+		g_skip_msgrecv_listen = false;
 		ScheduleCommlineRX();
 	}
 
-	Simulator::Run();
 }
 
 void AirlineManager::msgrecvCallback(msg_buf_t *mbuf)
@@ -484,11 +501,19 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 		ApplicationContainer apps = airlineApp.Install(g_ifctx.nodes);
 		apps.Start(Seconds(0.0));
 
-		ScheduleSimulationEnd();
+		ScheduleSimulationExit();
+		fprintf(stderr, "ScheduleCommlineRX() MAIN\n");
 		ScheduleCommlineRX();
 		CINFO << "NS3 Simulator::Run initiated...\n";
         fflush(stdout);
+        while(!g_exit_sim)
+        {
+        	INFO("ITERATION\n");
+        	Simulator::Run();
+        }
+        ScheduleSimulationEnd();
         Simulator::Run();
+        fprintf(stderr, "pause reached\n");
 		pause();
 		Simulator::Destroy ();
 	} catch (int e) {
@@ -500,12 +525,18 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 
 void AirlineManager::ScheduleCommlineRX(void)
 {
+	Simulator::Cancel (m_sendEvent);
 	m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
+}
+
+void AirlineManager::ScheduleSimulationExit(void)
+{
+	Simulator::Schedule(m_simEndTimeUs, &AirlineManager::ExitSimulation, this);
 }
 
 void AirlineManager::ScheduleSimulationEnd(void)
 {
-	Simulator::Schedule(m_simEndTimeUs, &AirlineManager::KillSimulation, this);
+	Simulator::Schedule(MicroSeconds(1000), &AirlineManager::KillSimulation, this);
 }
 
 void AirlineManager::msgReader(void)
@@ -522,13 +553,24 @@ void AirlineManager::msgReader(void)
 			break;
 		}
 	}
-	ScheduleCommlineRX();
+	if(!g_skip_msgrecv_listen)
+	{
+		ScheduleCommlineRX();
+	}
 }
 
 void AirlineManager::KillSimulation(void)
 {
+	Simulator::Stop();
 	fprintf(stderr, "SIMULATION ENDED\n");
 	raise(SIGSTOP);
+}
+
+void AirlineManager::ExitSimulation(void)
+{
+	fprintf(stderr, "EXITING SIMULATION\n");
+	Simulator::Stop();
+	g_exit_sim = true;
 }
 
 AirlineManager::AirlineManager(wf::Config & cfg)

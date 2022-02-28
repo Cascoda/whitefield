@@ -754,6 +754,7 @@ static void lrwpanCleanup(ifaceCtx_t *ctx)
 
 static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 {
+	fprintf(stderr, "In lrwpanSendPacket()\n");
 	struct msg_buf_extended *mbuf_ext = (struct msg_buf_extended *)mbuf;
 
     McpsDataRequestParams params;
@@ -787,6 +788,8 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
     //TODO: HACK which allows the DataConfirm to know which Node sent the data request.
     //Maybe figure out a better way to do this, eventually?
     params.m_msduHandle  = mbuf_ext->evt.mNodeId;
+
+    delete mbuf;
 
 //    params.m_txOptions   = TX_OPTION_NONE;
 //    if(mbuf->dst_id != 0xffff) {

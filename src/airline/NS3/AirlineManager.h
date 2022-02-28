@@ -57,7 +57,9 @@ private:
     void    setSimulationEndTime(void);
     void    msgReader(void);
     void    KillSimulation(void);
+    void    ExitSimulation(void);
     void    ScheduleSimulationEnd(void);
+    void    ScheduleSimulationExit(void);
     void    otSendConfigUart(const uint16_t nodeID, const string ot_config);
     EventId m_sendEvent;
     Time    m_simEndTimeUs;

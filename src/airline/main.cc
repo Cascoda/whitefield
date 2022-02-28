@@ -31,6 +31,7 @@ extern "C" {
 
 void sig_handler(int signum)
 {
+	CINFO << "SIG_HANDLER" << endl;
 	if(signum == SIGSTOP)
 		exit(0);
 
