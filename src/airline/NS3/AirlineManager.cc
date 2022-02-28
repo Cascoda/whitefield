@@ -229,7 +229,6 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 		// Don't do anything special, cause will be processed automatically.
 		INFO("PROCESS NEXT EVENT...\n");
 		g_skip_msgrecv_listen = true;
-	Simulator::Cancel (m_sendEvent);
 	}
 	else
 	{
@@ -237,7 +236,6 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 		// want to go back to listening...
 		INFO("BACK TO LISTENING...\n");
 		g_skip_msgrecv_listen = false;
-		fprintf(stderr, "ScheduleCommlineRX() OTSendAlarm\n");
 		ScheduleCommlineRX();
 	}
 
@@ -263,7 +261,6 @@ void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 		// Don't do anything special, cause will be processed automatically.
 		INFO("PROCESS NEXT EVENT...\n");
 		g_skip_msgrecv_listen = true;
-	Simulator::Cancel (m_sendEvent);
 	}
 	else
 	{
@@ -271,7 +268,6 @@ void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 		// want to go back to listening...
 		INFO("BACK TO LISTENING...\n");
 		g_skip_msgrecv_listen = false;
-		fprintf(stderr, "ScheduleCommlineRX() OTFrameToSim\n");
 		ScheduleCommlineRX();
 	}
 }
@@ -325,8 +321,6 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 
 	memcpy(mbuf_ext, mbuf, sizeof(struct msg_buf_extended));
 
-	Simulator::Stop();
-
 	// Declutter logs from STATUS PUSH events
 	if(mbuf_ext->evt.mEventType != OT_EVENT_TYPE_STATUS_PUSH)
 	{
@@ -374,7 +368,6 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 	{
 		INFO("PROCESSING TIME...\n");
 		g_skip_msgrecv_listen = true;
-	Simulator::Cancel (m_sendEvent);
 	}
 	else
 	{
@@ -501,19 +494,11 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 		ApplicationContainer apps = airlineApp.Install(g_ifctx.nodes);
 		apps.Start(Seconds(0.0));
 
-		ScheduleSimulationExit();
-		fprintf(stderr, "ScheduleCommlineRX() MAIN\n");
+		ScheduleSimulationEnd();
 		ScheduleCommlineRX();
 		CINFO << "NS3 Simulator::Run initiated...\n";
         fflush(stdout);
-        while(!g_exit_sim)
-        {
-        	INFO("ITERATION\n");
-        	Simulator::Run();
-        }
-        ScheduleSimulationEnd();
         Simulator::Run();
-        fprintf(stderr, "pause reached\n");
 		pause();
 		Simulator::Destroy ();
 	} catch (int e) {
@@ -525,18 +510,12 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 
 void AirlineManager::ScheduleCommlineRX(void)
 {
-	Simulator::Cancel (m_sendEvent);
 	m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
-}
-
-void AirlineManager::ScheduleSimulationExit(void)
-{
-	Simulator::Schedule(m_simEndTimeUs, &AirlineManager::ExitSimulation, this);
 }
 
 void AirlineManager::ScheduleSimulationEnd(void)
 {
-	Simulator::Schedule(MicroSeconds(1000), &AirlineManager::KillSimulation, this);
+	Simulator::Schedule(m_simEndTimeUs, &AirlineManager::KillSimulation, this);
 }
 
 void AirlineManager::msgReader(void)
@@ -561,16 +540,8 @@ void AirlineManager::msgReader(void)
 
 void AirlineManager::KillSimulation(void)
 {
-	Simulator::Stop();
 	fprintf(stderr, "SIMULATION ENDED\n");
-	raise(SIGSTOP);
-}
-
-void AirlineManager::ExitSimulation(void)
-{
-	fprintf(stderr, "EXITING SIMULATION\n");
-	Simulator::Stop();
-	g_exit_sim = true;
+	raise(SIGINT);
 }
 
 AirlineManager::AirlineManager(wf::Config & cfg)
