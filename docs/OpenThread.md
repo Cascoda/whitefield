@@ -9,10 +9,25 @@ The setup instructions are identical to the ones laid out in the top-level READM
 ```
 $ cd whitefield
 
-#Run the entire simulation
+# Start the simulation
 $ ./invoke_whitefield.sh config/wf_ot.cfg
 ```
-Note: With OpenThread, the simulation runs in virtual time. This means that the amount of time that passes in real life is decoupled from the time that passes in the simulation. So, for example, it might take less than a second in real life for Whitefield to simulate 10 minutes of an OpenThread network.
+Note: With OpenThread, the simulation runs in virtual time. This means that the amount of time that passes in real life is decoupled from the time that passes in the simulation. So, for example, it might take less than a minute in real life for Whitefield to simulate 10 minutes of an OpenThread network.
+
+After running the simulation, the next step is to wait until the simulation has run to completion. Here is how to do that:
+* Open the airline log file using the command ```less log/airline.log```. At this point, the simulation may still be running, or may have already terminated. Either way, proceed to the next step.
+* Hold down the following keys: 'Shitf + g'. This will make the terminal track the end of the log file, even while it is still getting written to if the simulation is still running. Keep holding these two keys until the screen is no longer scrolling.
+* When the screen stops scrolling, meaning that the log file is no longer being written to, this could mean one of two things: Either the simulation has completed, or (which can happen sometimes) the simulation is hanging.
+* If the simulation has completed, you should see the following in the last few lines of the log file:
+```bash
+SIMULATION ENDED
+INFO  Airline Caught Signal 2
+INFO  00:00:00.000 [usock_cleanup:96] closed commline unix sockets
+INFO  Sayonara 2
+```
+* If, on the other hand, you do not see the above messages, then the simulation has likely gotten stuck somewhere. To fix this:
+    * Run the script ```./scripts/wfshell stop_whitefield```. This will kill all processes associated with the simulation.
+    * After Whitefield is stopped, you can try running the simulation again.
 
 **Configuration Options**:
 
@@ -26,6 +41,38 @@ The most important of these are:
 **Gathering Logs/Data/Statistics**:
 
 Once the simulation has executed, logs can be obtained from ```log/airline.log```, and pcap files for each node from ```pcap/pkt-0-0.pcap``` (for node 0, for example). The pcap files can be opened in Wireshark.
+
+Once opened in Wireshark, do the following in order to allow Wireshark to correctly interpret and decode the pcap file:
+* Add the network key as a decription key.
+    1. Open the ```config/wf_ot.cfg``` file.
+    2. Locate the ```nodeConfig``` parameter. This is a semicolon-separated list of key-value pairs.
+    3. One of the 'keys' is ```networkkey```. Copy the corresponding value, e.g. ```00112233445566778899aabbccddeeff```.
+    4. Go back to Wireshark, and click on Edit > Preferences. This will open up the Preferences window.
+    5. In the options of the left, expand the Protocols list, and scroll down until you find IEEE 802.15.4.
+    6. Select IEEE 802.15.4, and click on Edit... next to "Decryption Keys". This will open up a window where you can add/remove/edit decryption keys.
+    7. On the lower left corner of the window, there is a '+' symbol. Click on this symbol.
+    8. Paste the network key that you had copied from the config file.
+    9. Under 'Key hash', select 'Thread hash'.
+    10. Now click 'OK' in the bottom right corner of the window.
+    10. Click 'OK' again to exit out of the Preferences window.
+* Allow UDP messages to be decoded as CoAP.
+    1. Locate a message whose Protocol field says UDP.
+    2. Right-click on it. This will result in it being highlighted.
+    3. Select Decode As... This will open up a window.
+    4. In the window, click on the field under 'Current' to expand the drop-down list of protocols.
+    5. Select CoAP from that list.
+    6. Click 'OK' on the bottom right to exit out of this window.
+
+**Additional Useful Information/Tips**
+
+* DO NOT use the ```./scripts/monitor.sh``` or ```./scripts/whitefield_status.sh``` scripts. These are not intended to work with virtual time simulation!
+* In the ```log/airline.log```, the simulation time is displayed in units of Microseconds. 
+* Tips on navigating/looking through logs: 
+    * Open the logs with the ```less``` command, e.g. ```less log/airline.log```.
+    * You can jump to the top of the file by pressing 'gg' (g key twice).
+    * You can jump to the end of the file by pressing 'Shift + g'.
+    * You can search for any word in the file by typing '/' (forward slash) followed by your search entry, e.g. '/DataIndication' to search for 'DataIndication'.
+    * Press the 'n' key to navigate to the next occurrence of your search, and 'Shift + n' for the previous occurrence.
 
 ## OpenThread-Whitefield Integration Aim
 
