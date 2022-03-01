@@ -59,9 +59,29 @@ enum
 	kDsnSize = sizeof(uint8_t),
 };
 
+enum
+{
+	LQI_MIN = 0,
+	LQI_MAX = 255,
+	RSSI_MIN = -100,
+	RSSI_MAX = -50,
+};
+
 typedef uint16_t PanId;
 typedef uint16_t ShortAddress;
 typedef uint64_t ExtAddress;
+
+static double round_number(double d)
+{
+	return floor(d + 0.5);
+}
+
+static double get_rssi_from_lqi(double lqi_in)
+{
+	double slope = 1.0 * (RSSI_MAX - RSSI_MIN) / (LQI_MAX - LQI_MIN);
+	double rssi = RSSI_MIN + round_number(slope * (lqi_in - LQI_MIN));
+	return rssi;
+}
 
 static enum OtErrors ot_status_convert(LrWpanMcpsDataConfirmStatus confirmStatus)
 {
@@ -404,11 +424,7 @@ static void OTSendFrameToNode(struct msg_buf_extended *msg_buf_ext, uint32_t OtD
 {
 	fprintf(stderr, "In OTSendFrameToNode..., sim time: %ld\n", Simulator::Now().GetTimeStep());
 
-	//TODO: Get a real RSSI value
-    int8_t dummy_rssi = -50;
-
 	msg_buf_ext->evt.mEventType = OT_EVENT_TYPE_RADIO_FRAME_TO_NODE;
-	msg_buf_ext->evt.mParam1 = dummy_rssi;
     msg_buf_ext->evt.mNodeId = OtDstNodeId;
     msg_buf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(msg_buf_ext->evt.mNodeId);
     printEvent(&msg_buf_ext->evt);
@@ -475,6 +491,7 @@ static void DataIndication (int id, McpsDataIndicationParams params,
                             Ptr<Packet> p)
 {
 	INFO("DataIndication called!, sim time: %ld\n", Simulator::Now().GetTimeStep());
+	fprintf(stderr, "LQI: %d\n", params.m_mpduLinkQuality);
 
 //	fprintf(stderr, "\tsrcAddrMode: %d\n", params.m_srcAddrMode);
 //	fprintf(stderr, "\tsrcPanId: %d\n", params.m_srcPanId);
@@ -507,6 +524,9 @@ static void DataIndication (int id, McpsDataIndicationParams params,
     evt.mDataLength = p->GetSize() + sizeof(radio_msg->channel);
     radio_msg->channel = 11;
     p->CopyData(radio_msg->psdu, evt.mDataLength);
+
+    //Add RSSI
+    evt.mParam1 = (int8_t)get_rssi_from_lqi((double) params.m_mpduLinkQuality);
     OtEventToWfBuf(mbuf_ext, &evt);
 
     //Extract the source address
