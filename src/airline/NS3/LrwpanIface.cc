@@ -55,6 +55,12 @@ enum
 
 enum
 {
+	kFcfFrameAck      = 2 << 0,
+	kFcfFrameTypeMask = 7 << 0,
+};
+
+enum
+{
 	kFcfSize = sizeof(uint16_t),
 	kDsnSize = sizeof(uint8_t),
 };
@@ -355,6 +361,19 @@ static void getSourceShortAddress(msg_buf_extended *msg_ext, Mac16Address *addr)
 			break;
 	}
 }
+
+static uint8_t getType(msg_buf_extended *msg_ext)
+{
+	struct RadioMessage *radio_msg = (struct RadioMessage *)msg_ext->evt.mData;
+
+	return radio_msg->psdu[0] & kFcfFrameTypeMask;
+}
+
+static bool isAck(msg_buf_extended *msg_ext)
+{
+	return getType(msg_ext) == kFcfFrameAck;
+}
+
 static Ptr<LrWpanNetDevice> getDev(ifaceCtx_t *ctx, int id)
 {
     Ptr<Node> node = ctx->nodes.Get(id); 
@@ -512,6 +531,7 @@ static void DataIndication (int id, McpsDataIndicationParams params,
     uint32_t srcNodeId;
     uint32_t OtSrcNodeId;
     bool dispatchedByDstAddr = false;
+    bool isAcknowledgement = false;
 
     if (p->GetSize() >= COMMLINE_MAX_BUF) {
         CERROR << "Pkt len" << p->GetSize() << " bigger than\n";
@@ -529,97 +549,113 @@ static void DataIndication (int id, McpsDataIndicationParams params,
     evt.mParam1 = (int8_t)get_rssi_from_lqi((double) params.m_mpduLinkQuality);
     OtEventToWfBuf(mbuf_ext, &evt);
 
-    //Extract the source address
-    if(getSourceAddressMode(mbuf_ext) == EXT_ADDR)
+    //Determine whether this is an acknowledgement or not
+    isAcknowledgement = isAck(mbuf_ext);
+
+    if(!isAcknowledgement)
     {
-    	Mac64Address src_addr;
-    	uint64_t src_extended;
-    	//Extract the source address
-    	getSourceExtendedAddress(mbuf_ext, &src_addr);
+		fprintf(stderr, "This is not an acknowledgement\n");
 
-    	//Save it as a uint64_t
-    	src_extended = addr64toid(src_addr);
+		//Extract the source address
+		if(getSourceAddressMode(mbuf_ext) == EXT_ADDR)
+		{
+			Mac64Address src_addr;
+			uint64_t src_extended;
+			//Extract the source address
+			getSourceExtendedAddress(mbuf_ext, &src_addr);
 
-    	//Deduce the nodeId of the source node
-    	srcNodeId = getNodeIdFromExtendedAddr(src_extended);
-    	OtSrcNodeId = srcNodeId + 1;
-    	fprintf(stderr, "EXTENDED SOURCE ADDRESS: 0x%" PRIx64 ", corresponding to node %d\n", src_extended, OtSrcNodeId);
-    }
-    else if(getSourceAddressMode(mbuf_ext) == SHORT_ADDR)
-    {
-    	Mac16Address src_addr;
-    	uint16_t src_short;
-    	//Extract the source address
-    	getSourceShortAddress(mbuf_ext, &src_addr);
+			//Save it as a uint64_t
+			src_extended = addr64toid(src_addr);
 
-    	//Save it as a uint64_t
-    	src_short = addr16toid(src_addr);
+			//Deduce the nodeId of the source node
+			srcNodeId = getNodeIdFromExtendedAddr(src_extended);
+			OtSrcNodeId = srcNodeId + 1;
+			fprintf(stderr, "EXTENDED SOURCE ADDRESS: 0x%" PRIx64 ", corresponding to node %d\n", src_extended, OtSrcNodeId);
+		}
+		else if(getSourceAddressMode(mbuf_ext) == SHORT_ADDR)
+		{
+			Mac16Address src_addr;
+			uint16_t src_short;
+			//Extract the source address
+			getSourceShortAddress(mbuf_ext, &src_addr);
 
-    	//Deduce the nodeId of the source node
-    	srcNodeId = getNodeIdFromShortAddr(src_short);
-    	OtSrcNodeId = srcNodeId + 1;
-    	fprintf(stderr, "SHORT SOURCE ADDRESS: 0x%x, corresponding to node %d\n", src_short, OtSrcNodeId);
-    }
-    else
-    {
-    	fprintf(stderr, "PROBLEM WITH SOURCE ADDRESS....???\n");
-    }
+			//Save it as a uint64_t
+			src_short = addr16toid(src_addr);
 
-    if(getDestinationAddressMode(mbuf_ext) == EXT_ADDR)
-    {
-    	//The message should only be dispatched to the target node with the extaddr
-    	Mac64Address dst_addr;
-    	uint64_t dst_extended;
+			//Deduce the nodeId of the source node
+			srcNodeId = getNodeIdFromShortAddr(src_short);
+			OtSrcNodeId = srcNodeId + 1;
+			fprintf(stderr, "SHORT SOURCE ADDRESS: 0x%x, corresponding to node %d\n", src_short, OtSrcNodeId);
+		}
+		else
+		{
+			fprintf(stderr, "PROBLEM WITH SOURCE ADDRESS....???\n");
+		}
 
-    	//Extract the destination address
-    	getDestinationExtendedAddress(mbuf_ext, &dst_addr);
+		if(getDestinationAddressMode(mbuf_ext) == EXT_ADDR)
+		{
+			//The message should only be dispatched to the target node with the extaddr
+			Mac64Address dst_addr;
+			uint64_t dst_extended;
 
-    	//Save it as a uint64_t
-    	dst_extended = addr64toid(dst_addr);
+			//Extract the destination address
+			getDestinationExtendedAddress(mbuf_ext, &dst_addr);
 
-    	//Deduce the nodeId of the destination node
-    	dstNodeId = getNodeIdFromExtendedAddr(dst_extended);
-    	OtDstNodeId = dstNodeId + 1;
+			//Save it as a uint64_t
+			dst_extended = addr64toid(dst_addr);
 
-    	fprintf(stderr, "dstAddrMode: EXT_ADDR, dst_extended: 0x%" PRIx64 ", dst_node_id: %d\n", dst_extended, OtDstNodeId);
-    	OTSendFrameToNode(mbuf_ext, OtDstNodeId);
+			//Deduce the nodeId of the destination node
+			dstNodeId = getNodeIdFromExtendedAddr(dst_extended);
+			OtDstNodeId = dstNodeId + 1;
 
-    	dispatchedByDstAddr = true;
-    }
-    else if(getDestinationAddressMode(mbuf_ext) == SHORT_ADDR)
-    {
-    	Mac16Address dst_addr;
-    	uint16_t dst_short;
+			fprintf(stderr, "dstAddrMode: EXT_ADDR, dst_extended: 0x%" PRIx64 ", dst_node_id: %d\n", dst_extended, OtDstNodeId);
+			OTSendFrameToNode(mbuf_ext, OtDstNodeId);
 
-    	//Extract the destination address
-    	getDestinationShortAddress(mbuf_ext, &dst_addr);
+			dispatchedByDstAddr = true;
+		}
+		else if(getDestinationAddressMode(mbuf_ext) == SHORT_ADDR)
+		{
+			Mac16Address dst_addr;
+			uint16_t dst_short;
 
-    	//Save it as a uint16_t
-    	dst_short = addr16toid(dst_addr);
+			//Extract the destination address
+			getDestinationShortAddress(mbuf_ext, &dst_addr);
 
-    	if(dst_short != BroadcastShortAddr)
-    	{
-    		//Unicast message should only be dispatched to target node with the short address
-    		//Deduce the nodeId of the destination node
-    		dstNodeId = getNodeIdFromShortAddr(dst_short);
-    		OtDstNodeId = dstNodeId + 1;
+			//Save it as a uint16_t
+			dst_short = addr16toid(dst_addr);
 
-    		//TODO: Add ability to handle there being multiple nodes with the same short address
-    		fprintf(stderr, "dstAddrMod: SHORT_ADDR, dst_short: 0x%x, dst_node_id: %d\n", dst_short, OtDstNodeId);
-    		OTSendFrameToNode(mbuf_ext, OtDstNodeId);
+			if(dst_short != BroadcastShortAddr)
+			{
+				//Unicast message should only be dispatched to target node with the short address
+				//Deduce the nodeId of the destination node
+				dstNodeId = getNodeIdFromShortAddr(dst_short);
+				OtDstNodeId = dstNodeId + 1;
 
-    		dispatchedByDstAddr = true;
-    	}
-    }
-    else
-    {
-    	fprintf(stderr, "PROBLEM WITH DESTINATION ADDRESS PARSING...\n");
+				//TODO: Add ability to handle there being multiple nodes with the same short address
+				fprintf(stderr, "dstAddrMod: SHORT_ADDR, dst_short: 0x%x, dst_node_id: %d\n", dst_short, OtDstNodeId);
+				OTSendFrameToNode(mbuf_ext, OtDstNodeId);
+
+				dispatchedByDstAddr = true;
+			}
+		}
+		else
+		{
+			fprintf(stderr, "PROBLEM WITH DESTINATION ADDRESS PARSING...\n");
+		}
     }
 
     if(!dispatchedByDstAddr)
     {
     	//Send to every node
-    	fprintf(stderr, "BROADCAST: Sending to every node that is not the source node (%d in total)\n", getSpawnedNodes() - 1);
+    	if(isAcknowledgement)
+    	{
+			fprintf(stderr, "ACK: Sending to every node that is not the source node (%d in total)\n", getSpawnedNodes() - 1);
+    	}
+    	else
+    	{
+			fprintf(stderr, "BROADCAST: Sending to every node that is not the source node (%d in total)\n", getSpawnedNodes() - 1);
+    	}
+
     	for(uint32_t i = 0; i < (uint32_t)getSpawnedNodes(); i++)
     	{
     		if(i == srcNodeId)
