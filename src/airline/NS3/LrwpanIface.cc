@@ -845,6 +845,13 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
     //Maybe figure out a better way to do this, eventually?
     params.m_msduHandle  = mbuf_ext->evt.mNodeId;
 
+    //TODO: HACK which allows ns3 to know that this is an ACK, so it can skip the CCA.
+    params.m_txOptions = isAck(mbuf_ext);
+    if(params.m_txOptions)
+    {
+		fprintf(stderr, "mcpsdatarequest, ACKNOWLEDGEMENT\n");
+    }
+
     delete mbuf;
 
 //    params.m_txOptions   = TX_OPTION_NONE;
