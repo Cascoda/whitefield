@@ -2,6 +2,7 @@
 #define _OT_EVENT_HELPERS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "commline.h"
 
 #define OT_TOOL_PACKED_BEGIN
@@ -10,6 +11,7 @@
 extern uint64_t g_nodes_cur_time[1024]; //Stores the current virtual time of each node.
 extern uint16_t g_nodes_short_addr[1024]; //Maps each node's id to its short address.
 extern uint64_t g_nodes_ext_addr[1024]; //Maps each node's id to its extended address.
+extern bool     g_nodes_alive_status[1024]; //Maps each node's id to its awake/sleep status. True = awake
 
 /**
  * Extract a 16-bit value from a little-endian octet array
@@ -147,8 +149,9 @@ void serializeEvent(char *msg_out, const struct Event *evt_in);
 // Deserialize buffer received from OT node over UDP and extract into Event struct.
 void deserializeMessage(struct Event *evt_out, const char *msg_in);
 
-void setAliveNode();
-void setAsleepNode();
+void setAliveNode(uint32_t nodeId);
+void setAsleepNode(uint32_t nodeId);
+bool isNodeAlive(uint32_t nodeId);
 int getAliveNodes();
 
 int getSpawnedNodes();

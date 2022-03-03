@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "ot_event_helpers.h"
 #include "cl_usock.h"
@@ -16,6 +17,7 @@ int numOfSpawnedNodes = 0;
 uint64_t g_nodes_cur_time[1024] = {0}; //Stores the current virtual time of each node.
 uint16_t g_nodes_short_addr[1024] = {0}; //Maps each node's id to its short address.
 uint64_t g_nodes_ext_addr[1024] = {0}; //Maps each node's id to its extended address.
+bool     g_nodes_alive_status[1024] = {false}; //Maps each node's id to its awake/sleep status. True = awake
 
 const char *getEventTypeName(enum EventTypes evtType)
 {
@@ -42,7 +44,6 @@ const char *getEventTypeName(enum EventTypes evtType)
 
 void printEvent(const struct Event *evt)
 {
-	INFO("printEvent\n");
     fprintf(stderr, "evt->mDelay: %"PRIu64"\n", evt->mDelay);
     fprintf(stderr, "evt->mNodeId: %d\n", evt->mNodeId);
     fprintf(stderr, "evt->mEventType: %s\n", getEventTypeName((enum EventTypes)evt->mEventType));
@@ -121,20 +122,47 @@ void deserializeMessage(struct Event *evt_out, const char *msg_in)
     memcpy(evt_out->mData, &msg_in[idx], evt_out->mDataLength);
 }
 
-void setAliveNode()
+void setAliveNode(uint32_t nodeId)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return;
+	}
+
+	if(g_nodes_alive_status[nodeId - 1] == true)
+	{
+		fprintf(stderr, "node %d already alive...\n", nodeId);
+		return;
+	}
+
 	numOfAliveNodes++;
-    fprintf(stderr, "numOfAliveNodes++: %d\n", getAliveNodes());
+	g_nodes_alive_status[nodeId - 1] = true;
+
+    fprintf(stderr, "node %d asleep->alive, numOfAliveNodes++: %d\n", nodeId, getAliveNodes());
     if(numOfAliveNodes > numOfSpawnedNodes)
     {
     	fprintf(stderr, "Race condition... numOfAliveNodes > numOfSpawnedNodes\n");
     }
 }
 
-void setAsleepNode()
+void setAsleepNode(uint32_t nodeId)
 {
+	if(nodeId == 0)
+	{
+		fprintf(stderr, "NODE ID ZERO IS INVALID\n...");
+		return;
+	}
+
+	if(g_nodes_alive_status[nodeId - 1] == false)
+	{
+		fprintf(stderr, "node %d already asleep...\n", nodeId);
+		return;
+	}
+
 	numOfAliveNodes--;
-    fprintf(stderr, "numOfAliveNodes--: %d\n", getAliveNodes());
+	g_nodes_alive_status[nodeId - 1] = false;
+    fprintf(stderr, "node %d alive->asleep: numOfAliveNodes--: %d\n", nodeId, getAliveNodes());
 }
 
 int getAliveNodes()

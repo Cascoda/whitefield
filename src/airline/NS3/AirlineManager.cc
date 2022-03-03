@@ -47,7 +47,6 @@ extern "C" {
 ifaceCtx_t g_ifctx;
 bool g_cfg_sent[1024] = {false};
 bool g_first_alarm_sent[1024] = {false};
-bool g_skip_msgrecv_listen = false;
 bool g_exit_sim = false;
 
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
@@ -207,19 +206,19 @@ void AirlineManager::otSendConfigUart(const uint16_t nodeID, const string ot_con
 
 void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 {
-	INFO("IN OTSendAlarm\n");
-	fprintf(stderr, "sim time: %ld\n", Simulator::Now().GetTimeStep());
-	printEvent(&mbuf_ext->evt);
+	fprintf(stderr, "In OTSendAlarm, sim time: %ld\n", Simulator::Now().GetTimeStep());
 
 	// Update delay based on node's current time and send event to OT node
 	if(getNodeCurTime(mbuf_ext->evt.mNodeId) > Simulator::Now().GetTimeStep())
 		ERROR("ASFASEOFIJAOEJFOSEJF PROOOOOOOOOBLEM!!!!!! ========ASD=FASD=F-ASD=F-\n");
 
 	mbuf_ext->evt.mDelay = Simulator::Now().GetTimeStep() - getNodeCurTime(mbuf_ext->evt.mNodeId);
+	printEvent(&mbuf_ext->evt);
+
 	cl_sendto_q(MTYPE(STACKLINE, mbuf_ext->evt.mNodeId - 1), (msg_buf_t *)mbuf_ext, sizeof(struct msg_buf_extended));
 
 	// Update node's status
-	setAliveNode();
+	setAliveNode(mbuf_ext->evt.mNodeId);
 	uint64_t node_cur_time = getNodeCurTime(mbuf_ext->evt.mNodeId);
 	setNodeCurTime(mbuf_ext->evt.mNodeId, node_cur_time + mbuf_ext->evt.mDelay);
 
@@ -228,14 +227,14 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 	{
 		// Don't do anything special, cause will be processed automatically.
 		INFO("PROCESS NEXT EVENT...\n");
-		g_skip_msgrecv_listen = true;
+		SetSkipListen(true);
 	}
 	else
 	{
 		// We don't want to process the next event quite yet. Instead,
 		// want to go back to listening...
 		INFO("BACK TO LISTENING...\n");
-		g_skip_msgrecv_listen = false;
+		SetSkipListen(false);
 		ScheduleCommlineRX();
 	}
 
@@ -251,25 +250,7 @@ void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 
 	//PROCESS THIS EVENT...
     ifaceSendPacket(&g_ifctx, wfNodeId, (msg_buf_t *)mbuf_ext);
-
-//	setAliveNode(); TODO: PROBABLY NEED TO SET ALIVE, BUT MAKE SURE IT CAN'T BE DONE TWICE
-    //IN A ROW. OTHERWISE WILL HAVE TO IMPLEMENTE ARRAY THAT KEEPS TRACK OF ALIVE STATUS OF EVERY
-    //INDIVIDUAL NODE
-
-	if(Simulator::IsNextEventNow())
-	{
-		// Don't do anything special, cause will be processed automatically.
-		INFO("PROCESS NEXT EVENT...\n");
-		g_skip_msgrecv_listen = true;
-	}
-	else
-	{
-		// We don't want to process the next event quite yet. Instead,
-		// want to go back to listening...
-		INFO("BACK TO LISTENING...\n");
-		g_skip_msgrecv_listen = false;
-		ScheduleCommlineRX();
-	}
+    SetSkipListen(true);
 }
 
 void AirlineManager::OTProcessStatusPush(struct msg_buf_extended *mbuf_ext)
@@ -313,8 +294,7 @@ void AirlineManager::OTProcessStatusPush(struct msg_buf_extended *mbuf_ext)
 
 void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 {
-	INFO("OTmsgrecvCallback got called!\n");
-
+	fprintf(stderr, "In OTmsgrecvCallback, sim time: %ld, aliveNodes: %d\n", Simulator::Now().GetTimeStep(), getAliveNodes());
 	Time delay;
 
 	struct msg_buf_extended *mbuf_ext = new struct msg_buf_extended;
@@ -352,7 +332,7 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 				}
 				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
 				Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
-				setAsleepNode();
+				setAsleepNode(mbuf_ext->evt.mNodeId);
 				break;
 			case OT_EVENT_TYPE_RADIO_FRAME_ACK_TO_SIM:
 			case OT_EVENT_TYPE_RADIO_FRAME_TO_SIM:
@@ -367,12 +347,12 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 	if(getAliveNodes() == 0)
 	{
 		INFO("PROCESSING TIME...\n");
-		g_skip_msgrecv_listen = true;
+		SetSkipListen(true);
 	}
 	else
 	{
 		fprintf(stderr, "ScheduleCommlineRx() OTmsgrecvCallback\n");
-		g_skip_msgrecv_listen = false;
+		SetSkipListen(false);
 		ScheduleCommlineRX();
 	}
 
@@ -425,6 +405,11 @@ void AirlineManager::nodePos(NodeContainer const & nodes,
 	mob.SetPositionAllocator (positionAlloc);
 	mob.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 	mob.Install(nodes.Get(id));
+}
+
+void AirlineManager::setAirlineManagerPtr(void)
+{
+	ifaceSaveAirlinePtr(&g_ifctx, this);
 }
 
 void AirlineManager::setNodeSpecificParam(NodeContainer & nodes)
@@ -487,6 +472,7 @@ int AirlineManager::startNetwork(wf::Config & cfg)
         }
 
 		setNodeSpecificParam(g_ifctx.nodes);
+		setAirlineManagerPtr();
 		setSimulationEndTime();
 		initAddressMaps();
 
@@ -513,6 +499,16 @@ void AirlineManager::ScheduleCommlineRX(void)
 	m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
 }
 
+void AirlineManager::SetSkipListen(bool shouldSkip)
+{
+	m_skip_msgrecv_listen = shouldSkip;
+}
+
+bool AirlineManager::GetSkipListen(void)
+{
+	return m_skip_msgrecv_listen;
+}
+
 void AirlineManager::ScheduleSimulationEnd(void)
 {
 	Simulator::Schedule(m_simEndTimeUs, &AirlineManager::KillSimulation, this);
@@ -525,14 +521,13 @@ void AirlineManager::msgReader(void)
 		int rcvLen = cl_recvfrom_q(MTYPE(AIRLINE,CL_MGR_ID),
                 mbuf, sizeof(mbuf_buf), CL_FLAG_NOWAIT);
 		if(rcvLen >= (int)sizeof(msg_buf_extended)) {
-			INFO("msgReader, sim time: %ld, aliveNodes: %d\n", Simulator::Now().GetTimeStep(), getAliveNodes());
 			OTmsgrecvCallback(mbuf);
 			usleep(1);
 		} else {
 			break;
 		}
 	}
-	if(!g_skip_msgrecv_listen)
+	if(!GetSkipListen())
 	{
 		ScheduleCommlineRX();
 	}
@@ -547,6 +542,7 @@ void AirlineManager::KillSimulation(void)
 AirlineManager::AirlineManager(wf::Config & cfg)
 {
 	m_sendEvent = EventId ();
+	m_skip_msgrecv_listen = false;
 	startNetwork(cfg);
 	CINFO << "AirlineManager started" << endl;
 }

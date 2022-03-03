@@ -145,7 +145,7 @@ void Config::spawnStackline(const uint16_t nodeID)
 	}
 
 	setSpawnedNode();
-	setAliveNode();
+	setAliveNode(nodeID + 1); //+1 because OT nodes start at ID 1
     ot_init(nodeID);
 
 	if(nodeID == getNumberOfNodes()-1) {

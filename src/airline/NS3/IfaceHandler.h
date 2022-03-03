@@ -53,7 +53,7 @@ typedef struct _iface_ {
     int (*setAddress)(ifaceCtx_t *ctx, int id, const char *buf, int sz);
     int (*sendPacket)(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf);
     void (*cleanup)(ifaceCtx_t *ctx);
-    void (*savePtr)(ifaceCtx_t *ctx, AirlineManager* mgr_p);
+    int (*savePtr)(ifaceCtx_t *ctx, AirlineManager* mgr_p);
 
     uint8_t inited : 1;
 } ifaceApi_t;
@@ -109,6 +109,14 @@ static inline int ifaceSendPacket(ifaceCtx_t *ctx, int id,
 
     GET_IFACE(ctx, iface, sendPacket);
     return iface->sendPacket(ctx, id, mbuf);
+}
+
+static inline int ifaceSaveAirlinePtr(ifaceCtx_t *ctx, AirlineManager *p)
+{
+    ifaceApi_t *iface;
+
+    GET_IFACE(ctx, iface, savePtr);
+    return iface->savePtr(ctx, p);
 }
 
 #endif // _IFACEHANDLER_H_

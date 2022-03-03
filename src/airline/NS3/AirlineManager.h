@@ -36,6 +36,8 @@ using namespace ns3;
 class AirlineManager {
 public:
     void    ScheduleCommlineRX(void);
+    void    SetSkipListen(bool shouldSkip);
+    bool 	GetSkipListen(void);
 private:
     void    msgrecvCallback(msg_buf_t *mbuf);
     void    OTmsgrecvCallback(msg_buf_t *mbuf);
@@ -53,6 +55,7 @@ private:
     int     cmd_802154_set_panid(uint16_t id, char *buf, int buflen);
     void    setPositionAllocator(NodeContainer &nodes);
     void    setNodeSpecificParam(NodeContainer &nodes);
+    void    setAirlineManagerPtr(void);
     int     setAllNodesParam(NodeContainer &nodes);
     void    setSimulationEndTime(void);
     void    msgReader(void);
@@ -61,6 +64,7 @@ private:
     void    otSendConfigUart(const uint16_t nodeID, const string ot_config);
     EventId m_sendEvent;
     Time    m_simEndTimeUs;
+    bool 	m_skip_msgrecv_listen;
 
 public:
     AirlineManager(wf::Config &cfg);

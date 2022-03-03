@@ -420,23 +420,12 @@ static void OTSendTxDone(struct msg_buf_extended *msg_buf_ext, uint32_t OtSrcNod
 	cl_sendto_q(MTYPE(STACKLINE, msg_buf_ext->evt.mNodeId - 1), (msg_buf_t *)msg_buf_ext, sizeof(struct msg_buf_extended));
 
 	// Update node's status
-	setAliveNode();
+	setAliveNode(msg_buf_ext->evt.mNodeId);
 	uint64_t node_cur_time = getNodeCurTime(msg_buf_ext->evt.mNodeId);
 	setNodeCurTime(msg_buf_ext->evt.mNodeId, node_cur_time + msg_buf_ext->evt.mDelay);
 
-	// Decide whether to process next event or listen for new incoming events
-	if(Simulator::IsNextEventNow())
-	{
-		// Don't do anything special, cause will be processed automatically.
-		INFO("PROCESS NEXT EVENT...\n");
-	}
-	else
-	{
-		// We don't want to process the next event quite yet. Instead,
-		// want to go back to listening...
-		INFO("BACK TO LISTENING...\n");
-		airlineMgr->ScheduleCommlineRX();
-	}
+	airlineMgr->SetSkipListen(false);
+	airlineMgr->ScheduleCommlineRX();
 }
 
 static void OTSendFrameToNode(struct msg_buf_extended *msg_buf_ext, uint32_t OtDstNodeId)
@@ -452,23 +441,9 @@ static void OTSendFrameToNode(struct msg_buf_extended *msg_buf_ext, uint32_t OtD
 	cl_sendto_q(MTYPE(STACKLINE, msg_buf_ext->evt.mNodeId - 1), (msg_buf_t *)msg_buf_ext, sizeof(struct msg_buf_extended));
 
 	// Update node's status
-	setAliveNode();
+	setAliveNode(msg_buf_ext->evt.mNodeId);
 	uint64_t node_cur_time = getNodeCurTime(msg_buf_ext->evt.mNodeId);
 	setNodeCurTime(msg_buf_ext->evt.mNodeId, node_cur_time + msg_buf_ext->evt.mDelay);
-
-	// Decide whether to process next event or listen for new incoming events
-	if(Simulator::IsNextEventNow())
-	{
-		// Don't do anything special, cause will be processed automatically.
-		INFO("PROCESS NEXT EVENT...\n");
-	}
-	else
-	{
-		// We don't want to process the next event quite yet. Instead,
-		// want to go back to listening...
-		INFO("BACK TO LISTENING...\n");
-		airlineMgr->ScheduleCommlineRX();
-	}
 }
 
 static void DataConfirm (int id, McpsDataConfirmParams params)
@@ -666,6 +641,9 @@ static void DataIndication (int id, McpsDataIndicationParams params,
     		OTSendFrameToNode(mbuf_ext, i + 1); //+1 because node 0 in Whitefield corresponds to node 1 in OT.
     	}
     }
+
+	airlineMgr->SetSkipListen(false);
+	airlineMgr->ScheduleCommlineRX();
 }
 
 static void setShortAddress(Ptr<LrWpanNetDevice> dev, uint16_t id)
@@ -876,9 +854,11 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
     return SUCCESS;
 }
 
-static void lrwpanSaveAirlineMgr (ifaceCtx_t *ctx, AirlineManager* mgr_p)
+static int lrwpanSaveAirlineMgr (ifaceCtx_t *ctx, AirlineManager* mgr_p)
 {
+	fprintf(stderr, "In lrwpanSaveAirlineMgr()\n");
 	airlineMgr = mgr_p;
+	return 0;
 }
 
 ifaceApi_t lrwpanIface = {
