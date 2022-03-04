@@ -72,11 +72,12 @@ class Config;
 };
 extern wf::Config WF_config;
 
-#define CFG(...)                WF_config.get(__VA_ARGS__)
-#define CFG_INT(STR, DEF_VAL)   stoi(CFG(STR, #DEF_VAL), nullptr, 0)
-#define CFG_PANID               stoi(CFG("panID", "0xface"), nullptr, 0)
-#define SPAWN_STACKLINE(NODEID) WF_config.spawnStackline(NODEID)
-#define WF_STOP                 raise(SIGINT)
+#define CFG(...)                 WF_config.get(__VA_ARGS__)
+#define CFG_INT(STR, DEF_VAL)    stoi(CFG(STR, #DEF_VAL), nullptr, 0)
+#define CFG_DOUBLE(STR, DEF_VAL) atof(CFG(STR, #DEF_VAL).c_str())
+#define CFG_PANID                stoi(CFG("panID", "0xface"), nullptr, 0)
+#define SPAWN_STACKLINE(NODEID)  WF_config.spawnStackline(NODEID)
+#define WF_STOP                  raise(SIGINT)
 
 static inline int stricmp(string s1, string s2)
 {

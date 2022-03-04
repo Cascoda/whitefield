@@ -659,10 +659,15 @@ static void setShortAddress(Ptr<LrWpanNetDevice> dev, uint16_t id)
 
 static int setAllNodesParam(NodeContainer & nodes)
 {
+	fprintf(stderr, "In setAllNodesParam()\n");
+
     Ptr<SingleModelSpectrumChannel> channel;
     string loss_model = CFG("lossModel");
     string del_model = CFG("delayModel");
     bool macAdd = CFG_INT("macHeaderAdd", 1);
+    double rxSens = CFG_DOUBLE("rxSensitivity", 1);
+    fprintf(stderr, "rxSens = %lf\n", rxSens);
+
     LrWpanSpectrumValueHelper svh;
 
     if (!loss_model.empty() || !del_model.empty()) {
@@ -699,6 +704,7 @@ static int setAllNodesParam(NodeContainer & nodes)
             continue;
         }
 		dev->GetMac()->SetMacMaxFrameRetries(CFG_INT("macMaxRetry", 3));
+		dev->GetPhy()->SetRxSensitivity(rxSens);
 
         /* Set Callbacks */
 		dev->GetMac()->SetMcpsDataConfirmCallback(
