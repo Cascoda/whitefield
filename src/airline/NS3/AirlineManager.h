@@ -62,6 +62,7 @@ private:
     void    KillSimulation(void);
     void    ScheduleSimulationEnd(void);
     void    otSendConfigUart(const uint16_t nodeID, const string ot_config);
+    void    otSendPingUart(const uint16_t nodeID, const string ot_ping_cmd);
     EventId m_sendEvent;
     Time    m_simEndTimeUs;
     bool 	m_skip_msgrecv_listen;

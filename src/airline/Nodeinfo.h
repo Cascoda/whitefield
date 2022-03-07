@@ -29,11 +29,12 @@ namespace wf {
 class Nodeinfo : public Macstats {
 private:
     string  nodeExec;
-    string  nodeConfig;
+    string  nodePing;
     string  capFile;
     double  X, Y, Z;
     uint8_t pos_set;
     uint8_t promis_mode;
+    uint8_t ping_set;
 
     map<string, string, ci_less> keyval;
 
@@ -48,21 +49,27 @@ public:
     {
         keyval[key] = val;
     };
-    string getNodeConfig(void)
+    string getNodePing(uint8_t &is_set, string def = std::string())
     {
-        return nodeConfig;
-    };
-    void setNodeConfig(const string config_str)
-    {
-        nodeConfig = config_str;
+        is_set = pos_set;
+        if (!is_set)
+            return def;
 
-        for(size_t i = 0; i < nodeConfig.length(); i++)
+        return nodePing;
+    };
+    void setNodePing(const string ping_str)
+    {
+        nodePing = ping_str;
+
+        for(size_t i = 0; i < nodePing.length(); i++)
         {
-        	if(nodeConfig[i] == ';')
+        	if(nodePing[i] == ';')
         	{
-        		nodeConfig[i] = '\n';
+        		nodePing[i] = '\n';
         	}
         }
+
+        ping_set = 1;
     };
     string getNodeExecutable(void)
     {
@@ -104,6 +111,7 @@ public:
     {
         pos_set     = 0;
         promis_mode = 0;
+        ping_set = 0;
     };
 };
 } //namespace wf

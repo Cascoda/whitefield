@@ -128,7 +128,6 @@ void Config::spawnStackline(const uint16_t nodeID)
 	msg_buf_t *mbuf = (msg_buf_t*)buf;
 	int len=0;
 	string cmd = nodeArray[nodeID].getNodeExecutable();
-	string cfg = nodeArray[nodeID].getNodeConfig();
 
 	if(cmd.empty()) {
 		ERROR("No Stackline exec configured for nodeID:%d\n", nodeID);
@@ -192,11 +191,11 @@ int Config::setNodeSetExec(const string exec, int beg, int end)
 	return SUCCESS;
 }
 
-int Config::setNodeConfig(const string cfg, int beg, int end)
+int Config::setNodePing(const string ping_cmd, int beg, int end)
 {
 	int i;
 	for(i=beg;i<=end;i++) {
-		nodeArray[i].setNodeConfig(cfg);
+		nodeArray[i].setNodePing(ping_cmd);
 	}
 	return SUCCESS;
 }
@@ -290,6 +289,8 @@ int Config::setConfigurationFromFile(const char *fname)
 						}
 					}
 					set(key, value);
+				} else if(key == "nodePing") {
+					setNodePing(value, beg_range, end_range);
 				} else if(key == "captureFile") {
 					setNodeSetCapFile(value, beg_range, end_range);
 				} else if(key == "nodePosition") {
