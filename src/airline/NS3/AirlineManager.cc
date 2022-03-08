@@ -48,6 +48,11 @@ ifaceCtx_t g_ifctx;
 bool g_cfg_sent[1024] = {false};
 bool g_should_send_ping[1024] = {false};
 bool g_first_alarm_sent[1024] = {false};
+EventId g_alarm_events[1024] = {EventId ()};
+uint64_t num_of_total_alarms_received = 0;
+uint64_t num_of_unprocessed_alarms = 0;
+uint64_t num_of_processed_alarms = 0;
+uint64_t num_of_replaced_alarms = 0;
 
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
 {
@@ -240,6 +245,10 @@ void AirlineManager::OTSendAlarm(struct msg_buf_extended *mbuf_ext)
 	uint64_t node_cur_time = getNodeCurTime(mbuf_ext->evt.mNodeId);
 	setNodeCurTime(mbuf_ext->evt.mNodeId, node_cur_time + mbuf_ext->evt.mDelay);
 
+	fprintf(stderr, "num_of_unprocessed_alarms--: %ld\n", --num_of_unprocessed_alarms);
+	fprintf(stderr, "num_of_processed_alarms++: %ld\n", ++num_of_processed_alarms);
+	g_alarm_events[mbuf_ext->evt.mNodeId - 1] = EventId ();
+
 	// Decide whether to process next event or listen for new incoming events
 	if(Simulator::IsNextEventNow())
 	{
@@ -357,7 +366,20 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 					break;
 				}
 				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
-				Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
+				fprintf(stderr, "num_of_total_alarms_received++: %ld\n", ++num_of_total_alarms_received);
+				if(g_alarm_events[mbuf_ext->evt.mNodeId - 1] != EventId ())
+				{
+					fprintf(stderr, "Node %d already has an alarm event scheduled... Replace it\n", mbuf_ext->evt.mNodeId);
+					Simulator::Cancel(g_alarm_events[mbuf_ext->evt.mNodeId - 1]);
+					fprintf(stderr, "num_of_replaced_alarms++: %ld\n", ++num_of_replaced_alarms);
+					g_alarm_events[mbuf_ext->evt.mNodeId - 1] = EventId ();
+				}
+				else
+				{
+					fprintf(stderr, "num_of_unprocessed_alarms++: %ld\n", ++num_of_unprocessed_alarms);
+				}
+
+				g_alarm_events[mbuf_ext->evt.mNodeId - 1] = Simulator::Schedule(delay, &AirlineManager::OTSendAlarm, this, mbuf_ext);
 				setAsleepNode(mbuf_ext->evt.mNodeId);
 				break;
 			case OT_EVENT_TYPE_RADIO_FRAME_ACK_TO_SIM:
