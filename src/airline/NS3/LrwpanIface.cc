@@ -31,6 +31,7 @@
 #include <inttypes.h>
 
 static AirlineManager* airlineMgr;
+uint64_t g_num_of_channel_access_failures = 0;
 
 enum
 {
@@ -451,6 +452,13 @@ static void DataConfirm (int id, McpsDataConfirmParams params)
 	fprintf(stderr, "In DataConfirm..., sim time: %ld\n", Simulator::Now().GetTimeStep());
 	fprintf(stderr, "Confirm status: %d\n", params.m_status);
 
+	if(params.m_status == IEEE_802_15_4_CHANNEL_ACCESS_FAILURE)
+	{
+		++g_num_of_channel_access_failures;
+	}
+
+	fprintf(stderr, "num of channel access failures: %ld\n", g_num_of_channel_access_failures);
+
 	fprintf(stderr, "\tmsdu_handle: %d\n", params.m_msduHandle);
 //	fprintf(stderr, "\tretries: %d\n", params.m_retries);
 //	fprintf(stderr, "\tdstAddrMode: %d\n", params.m_dstAddrMode);
@@ -705,6 +713,7 @@ static int setAllNodesParam(NodeContainer & nodes)
         }
 		dev->GetMac()->SetMacMaxFrameRetries(CFG_INT("macMaxRetry", 3));
 		dev->GetPhy()->SetRxSensitivity(rxSens);
+		dev->GetCsmaCa()->SetMacMaxCSMABackoffs(CFG_INT("macMaxCSMABackoffs", 1));
 
         /* Set Callbacks */
 		dev->GetMac()->SetMcpsDataConfirmCallback(
@@ -853,9 +862,7 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 #endif
 
     INFO("In lrwpanSendPacket\n");
-
-    Simulator::ScheduleNow (&LrWpanMac::McpsDataRequest,
-            dev->GetMac(), params, p0);
+	Simulator::ScheduleNow (&LrWpanMac::McpsDataRequest, dev->GetMac(), params, p0);
 
     return SUCCESS;
 }
