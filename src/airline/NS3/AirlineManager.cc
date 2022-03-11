@@ -341,7 +341,7 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 		otSendConfigUart(mbuf_ext->evt.mNodeId, cfg);
 		g_cfg_sent[mbuf_ext->evt.mNodeId - 1] = true;
 	}
-	else if(g_should_send_ping[mbuf_ext->evt.mNodeId - 1] && Simulator::Now().GetTimeStep() > Seconds(20).GetTimeStep())
+	else if(g_should_send_ping[mbuf_ext->evt.mNodeId - 1] && Simulator::Now().GetTimeStep() > Seconds(30).GetTimeStep())
 	{
 		wf::Nodeinfo *ni = WF_config.get_node_info(mbuf_ext->evt.mNodeId - 1);
 		uint8_t is_set;
