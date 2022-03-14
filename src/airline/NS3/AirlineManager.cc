@@ -54,6 +54,8 @@ uint64_t num_of_unprocessed_alarms = 0;
 uint64_t num_of_processed_alarms = 0;
 uint64_t num_of_replaced_alarms = 0;
 
+bool g_stop = false; //Used for debug purposes
+
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
 {
 	wf::Nodeinfo *ni=NULL;
@@ -277,6 +279,7 @@ void AirlineManager::OTFrameToSim(struct msg_buf_extended *mbuf_ext)
 
 	//PROCESS THIS EVENT...
     ifaceSendPacket(&g_ifctx, wfNodeId, (msg_buf_t *)mbuf_ext);
+
     SetSkipListen(true);
 }
 
@@ -384,6 +387,7 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 				break;
 			case OT_EVENT_TYPE_RADIO_FRAME_ACK_TO_SIM:
 			case OT_EVENT_TYPE_RADIO_FRAME_TO_SIM:
+				g_stop = true; //Used for debug purposes
 				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
 				Simulator::Schedule(delay, &AirlineManager::OTFrameToSim, this, mbuf_ext);
 				break;
@@ -548,7 +552,10 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 
 void AirlineManager::ScheduleCommlineRX(void)
 {
-	m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
+	if(!g_stop) //DEBUG: UNCOMMENT TO ONLY ALLOW A SINGLE MCPS DATA REQUEST TO HAPPEN
+	{
+		m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
+	}
 }
 
 void AirlineManager::SetSkipListen(bool shouldSkip)
@@ -568,6 +575,11 @@ void AirlineManager::ScheduleSimulationEnd(void)
 
 void AirlineManager::msgReader(void)
 {
+	if(g_stop) //DEBUG: UNCOMMENT TO ONLY ALLOW A SINGLE MCPS DATA REQUEST TO HAPPEN
+	{
+		return;
+	}
+
 	DEFINE_MBUF(mbuf);
 	while(1) {
 		int rcvLen = cl_recvfrom_q(MTYPE(AIRLINE,CL_MGR_ID),

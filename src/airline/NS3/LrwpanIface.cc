@@ -32,6 +32,7 @@
 
 static AirlineManager* airlineMgr;
 uint64_t g_num_of_channel_access_failures = 0;
+bool g_one_mcps_happened = false; //Used for debug purposes
 
 enum
 {
@@ -99,6 +100,7 @@ static enum OtErrors ot_status_convert(LrWpanMcpsDataConfirmStatus confirmStatus
 	case IEEE_802_15_4_CHANNEL_ACCESS_FAILURE:
 		return OT_ERROR_CHANNEL_ACCESS_FAILURE;
 	default:
+		fprintf(stderr, "error code: OT_ERROR_ABORT\n");
 		return OT_ERROR_ABORT;
 	}
 }
@@ -449,7 +451,7 @@ static void OTSendFrameToNode(struct msg_buf_extended *msg_buf_ext, uint32_t OtD
 
 static void DataConfirm (int id, McpsDataConfirmParams params)
 {
-	fprintf(stderr, "In DataConfirm..., sim time: %ld\n", Simulator::Now().GetTimeStep());
+	fprintf(stderr, "In DataConfirm..., node id: %d, sim time: %ld\n", id + 1, Simulator::Now().GetTimeStep());
 	fprintf(stderr, "Confirm status: %d\n", params.m_status);
 
 	if(params.m_status == IEEE_802_15_4_CHANNEL_ACCESS_FAILURE)
@@ -492,7 +494,7 @@ static void DataConfirm (int id, McpsDataConfirmParams params)
 static void DataIndication (int id, McpsDataIndicationParams params,
                             Ptr<Packet> p)
 {
-	INFO("DataIndication called!, sim time: %ld\n", Simulator::Now().GetTimeStep());
+	INFO("DataIndication called (node id: %d)!, sim time: %ld\n", id + 1, Simulator::Now().GetTimeStep());
 	fprintf(stderr, "LQI: %d\n", params.m_mpduLinkQuality);
 
 //	fprintf(stderr, "\tsrcAddrMode: %d\n", params.m_srcAddrMode);
@@ -862,7 +864,20 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 #endif
 
     INFO("In lrwpanSendPacket\n");
-	Simulator::ScheduleNow (&LrWpanMac::McpsDataRequest, dev->GetMac(), params, p0);
+
+    if(!g_one_mcps_happened) //DEBUG
+    {
+		Simulator::ScheduleNow (&LrWpanMac::McpsDataRequest,
+				dev->GetMac(), params, p0);
+
+//		id = (id + 1)%3;
+//		fprintf(stderr, "fake mcps from node id: %d\n", id);
+//		Ptr<LrWpanNetDevice> dev2 = getDev(ctx, id);
+//		Simulator::Schedule (MicroSeconds(1500), &LrWpanMac::McpsDataRequest,
+//				dev2->GetMac(), params, p0);
+    }
+
+    g_one_mcps_happened = true; //DEBUG
 
     return SUCCESS;
 }
