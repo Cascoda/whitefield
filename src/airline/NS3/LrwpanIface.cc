@@ -459,12 +459,6 @@ static void DataConfirm (int id, McpsDataConfirmParams params)
 
 	fprintf(stderr, "num of channel access failures: %ld\n", g_num_of_channel_access_failures);
 
-	fprintf(stderr, "\tmsdu_handle: %d\n", params.m_msduHandle);
-//	fprintf(stderr, "\tretries: %d\n", params.m_retries);
-//	fprintf(stderr, "\tdstAddrMode: %d\n", params.m_dstAddrMode);
-//	fprintf(stderr, "\tpktSz: %d\n", params.m_pktSz);
-//	fprintf(stderr, "\taddrShortDstAddr: %d\n", addr16toid(params.m_addrShortDstAddr));
-
     DEFINE_MBUF(mbuf);
 
     struct msg_buf_extended *mbuf_ext = (struct msg_buf_extended *)mbuf;
@@ -473,7 +467,7 @@ static void DataConfirm (int id, McpsDataConfirmParams params)
     //Insert data confirm status into data of event
     evt.mDataLength = 1;
     evt.mData[0] = ot_status_convert(params.m_status);
-    evt.mNodeId = params.m_msduHandle; //HACK: see lrwpanSendPacket
+    evt.mNodeId = id + 1;
     OtEventToWfBuf(mbuf_ext, &evt);
 
     fprintf(stderr, "Passing confirm, back to node %d\n", evt.mNodeId);
@@ -494,15 +488,6 @@ static void DataIndication (int id, McpsDataIndicationParams params,
 {
 	INFO("DataIndication called!, sim time: %ld\n", Simulator::Now().GetTimeStep());
 	fprintf(stderr, "LQI: %d\n", params.m_mpduLinkQuality);
-
-//	fprintf(stderr, "\tsrcAddrMode: %d\n", params.m_srcAddrMode);
-//	fprintf(stderr, "\tsrcPanId: %d\n", params.m_srcPanId);
-//	fprintf(stderr, "\tsrcAddr: %d\n", addr2id(params.m_srcAddr));
-//	fprintf(stderr, "\tmdstAddrMode: %d\n", params.m_dstAddrMode);
-//	fprintf(stderr, "\tdstPanId: 0x%x\n", params.m_dstPanId);
-//	fprintf(stderr, "\tdstAddr: %d\n", addr2id(params.m_dstAddr));
-//	fprintf(stderr, "\tmpduLinkQuality: %d\n", params.m_mpduLinkQuality);
-//	fprintf(stderr, "\tDSN: %d\n", params.m_dsn);
 
     DEFINE_MBUF(mbuf);
 
@@ -592,6 +577,13 @@ static void DataIndication (int id, McpsDataIndicationParams params,
 			OtDstNodeId = dstNodeId + 1;
 
 			fprintf(stderr, "dstAddrMode: EXT_ADDR, dst_extended: 0x%" PRIx64 ", dst_node_id: %d\n", dst_extended, OtDstNodeId);
+
+			if(OtDstNodeId != (uint32_t)id + 1)
+			{
+				fprintf(stderr, "packet not destined to node %d, event not sent...\n", id + 1);
+				return; //Packet not destined to this node
+			}
+
 			OTSendFrameToNode(mbuf_ext, OtDstNodeId);
 
 			dispatchedByDstAddr = true;
@@ -616,6 +608,13 @@ static void DataIndication (int id, McpsDataIndicationParams params,
 
 				//TODO: Add ability to handle there being multiple nodes with the same short address
 				fprintf(stderr, "dstAddrMod: SHORT_ADDR, dst_short: 0x%x, dst_node_id: %d\n", dst_short, OtDstNodeId);
+
+				if(OtDstNodeId != (uint32_t)id + 1)
+				{
+					fprintf(stderr, "packet not destined to node %d, event not sent...\n", id + 1);
+					return; //Packet not destined to this node
+				}
+
 				OTSendFrameToNode(mbuf_ext, OtDstNodeId);
 
 				dispatchedByDstAddr = true;
@@ -627,27 +626,19 @@ static void DataIndication (int id, McpsDataIndicationParams params,
 		}
     }
 
-    if(!dispatchedByDstAddr)
+    if(!dispatchedByDstAddr) //Meaning that the packet is either an ACK, or has a destination broadcast address
     {
     	//Send to every node
     	if(isAcknowledgement)
     	{
-			fprintf(stderr, "ACK: Sending to every node that is not the source node (%d in total)\n", getSpawnedNodes() - 1);
+			fprintf(stderr, "ACK sent to node %d\n", id + 1);
     	}
     	else
     	{
-			fprintf(stderr, "BROADCAST: Sending to every node that is not the source node (%d in total)\n", getSpawnedNodes() - 1);
+			fprintf(stderr, "BROADCAST sent to node %d\n", id + 1);
     	}
 
-    	for(uint32_t i = 0; i < (uint32_t)getSpawnedNodes(); i++)
-    	{
-    		if(i == srcNodeId)
-    		{
-    			fprintf(stderr, "Skipping node %d because source node\n", srcNodeId + 1);
-    			continue;
-    		}
-    		OTSendFrameToNode(mbuf_ext, i + 1); //+1 because node 0 in Whitefield corresponds to node 1 in OT.
-    	}
+		OTSendFrameToNode(mbuf_ext, id + 1); //+1 because node 0 in Whitefield corresponds to node 1 in OT.
     }
 
 	airlineMgr->SetSkipListen(false);
@@ -834,10 +825,6 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 //    	PRINT THE ADDRESS TO VERIFY!!!!!
 //    }
 
-    //TODO: HACK which allows the DataConfirm to know which Node sent the data request.
-    //Maybe figure out a better way to do this, eventually?
-    params.m_msduHandle  = mbuf_ext->evt.mNodeId;
-
     //TODO: HACK which allows ns3 to know that this is an ACK, so it can skip the CCA.
     params.m_txOptions = isAck(mbuf_ext);
     if(params.m_txOptions)
@@ -851,7 +838,6 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 //    if(mbuf->dst_id != 0xffff) {
 //        params.m_txOptions = TX_OPTION_ACK;
 //    }
-
 #if 0
     INFO << "TX DATA: "
          << " src_id=" << id
