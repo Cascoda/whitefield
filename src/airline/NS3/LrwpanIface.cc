@@ -30,8 +30,14 @@
 #include <IfaceHandler.h>
 #include <inttypes.h>
 
+#define DEBUG_INTERFERENCE 0
+
 static AirlineManager* airlineMgr;
 uint64_t g_num_of_channel_access_failures = 0;
+
+#if DEBUG_INTERFERENCE
+bool g_one_mcps_happened = false;
+#endif
 
 enum
 {
@@ -798,7 +804,12 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 	struct msg_buf_extended *mbuf_ext = (struct msg_buf_extended *)mbuf;
 
     McpsDataRequestParams params;
+#if DEBUG_INTERFERENCE
+    Ptr<LrWpanNetDevice> dev = getDev(ctx, 0);
+#else
     Ptr<LrWpanNetDevice> dev = getDev(ctx, id);
+#endif
+
     Ptr<Packet> p0;
 
     if (!dev) {
@@ -809,22 +820,6 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
     struct RadioMessage *radio_msg = (struct RadioMessage *)mbuf_ext->evt.mData;
     p0 = Create<Packet> (radio_msg->psdu, (uint32_t)mbuf_ext->evt.mDataLength-sizeof(radio_msg->channel));
 
-//    params.m_srcAddrMode = getSourceAddressMode(mbuf_ext);
-//    params.m_dstAddrMode = getDestinationAddressMode(mbuf_ext);
-//    params.m_dstPanId    = CFG_PANID;
-//    params.m_dstAddr     = getDestinationAddress(mbuf_ext);
-//    fprintf(stderr, "srcAddrMode: %d\n", params.m_srcAddrMode);
-//    fprintf(stderr, "dstAddrMode: %d\n", params.m_dstAddrMode);
-//    fprintf(stderr, "dstPanId: 0x%x\n", params.m_dstPanId);
-//
-//    Address dst_addr;
-//    getDestinationAddress(mbuf_ext, &dst_addr);
-//    if(dst_addr != NULL)
-//    {
-//    	params.m_dstExtAddr = dst_addr;
-//    	PRINT THE ADDRESS TO VERIFY!!!!!
-//    }
-
     //TODO: HACK which allows ns3 to know that this is an ACK, so it can skip the CCA.
     params.m_txOptions = isAck(mbuf_ext);
     if(params.m_txOptions)
@@ -834,10 +829,6 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 
     delete mbuf;
 
-//    params.m_txOptions   = TX_OPTION_NONE;
-//    if(mbuf->dst_id != 0xffff) {
-//        params.m_txOptions = TX_OPTION_ACK;
-//    }
 #if 0
     INFO << "TX DATA: "
          << " src_id=" << id
@@ -848,7 +839,21 @@ static int lrwpanSendPacket(ifaceCtx_t *ctx, int id, msg_buf_t *mbuf)
 #endif
 
     INFO("In lrwpanSendPacket\n");
-	Simulator::ScheduleNow (&LrWpanMac::McpsDataRequest, dev->GetMac(), params, p0);
+
+#if DEBUG_INTERFERENCE
+    if(!g_one_mcps_happened)
+    {
+#endif
+		Simulator::ScheduleNow (&LrWpanMac::McpsDataRequest, dev->GetMac(), params, p0);
+
+#if DEBUG_INTERFERENCE
+		 fprintf(stderr, "fake mcps from node id: %d\n", 2);
+		 Ptr<LrWpanNetDevice> dev2 = getDev(ctx, 2);
+		 Simulator::Schedule (MicroSeconds(1500), &LrWpanMac::McpsDataRequest, dev2->GetMac(), params, p0);
+    }
+
+    g_one_mcps_happened = true;
+#endif
 
     return SUCCESS;
 }

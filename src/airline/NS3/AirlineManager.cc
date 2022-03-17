@@ -42,6 +42,8 @@ extern "C" {
 #include "commline/ot_event_helpers.h"
 }
 
+#define DEBUG_INTERFERENCE 0
+
 #define OPENTHREAD_RESOLUTION Time::Unit::US
 
 ifaceCtx_t g_ifctx;
@@ -53,6 +55,10 @@ uint64_t num_of_total_alarms_received = 0;
 uint64_t num_of_unprocessed_alarms = 0;
 uint64_t num_of_processed_alarms = 0;
 uint64_t num_of_replaced_alarms = 0;
+
+#if DEBUG_INTERFERENCE
+bool g_stop = false;
+#endif
 
 int getNodeConfigVal(int id, char *key, char *val, int vallen)
 {
@@ -384,6 +390,9 @@ void AirlineManager::OTmsgrecvCallback(msg_buf_t *mbuf)
 				break;
 			case OT_EVENT_TYPE_RADIO_FRAME_ACK_TO_SIM:
 			case OT_EVENT_TYPE_RADIO_FRAME_TO_SIM:
+#if DEBUG_INTERFERENCE
+				g_stop = true;
+#endif
 				INFO("%s SCHEDULED...\n", getEventTypeName((enum EventTypes)mbuf_ext->evt.mEventType));
 				Simulator::Schedule(delay, &AirlineManager::OTFrameToSim, this, mbuf_ext);
 				break;
@@ -548,7 +557,12 @@ int AirlineManager::startNetwork(wf::Config & cfg)
 
 void AirlineManager::ScheduleCommlineRX(void)
 {
-	m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
+#if DEBUG_INTERFERENCE
+	if(!g_stop)
+#endif
+	{
+		m_sendEvent = Simulator::ScheduleNow (&AirlineManager::msgReader, this);
+	}
 }
 
 void AirlineManager::SetSkipListen(bool shouldSkip)
@@ -568,6 +582,13 @@ void AirlineManager::ScheduleSimulationEnd(void)
 
 void AirlineManager::msgReader(void)
 {
+#if DEBUG_INTERFERENCE
+	if(g_stop)
+	{
+		return;
+	}
+#endif
+
 	DEFINE_MBUF(mbuf);
 	while(1) {
 		int rcvLen = cl_recvfrom_q(MTYPE(AIRLINE,CL_MGR_ID),
