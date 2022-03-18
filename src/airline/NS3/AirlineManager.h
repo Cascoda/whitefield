@@ -47,6 +47,7 @@ private:
     int     phyInstall(NodeContainer &nodes);
     int     startNetwork(wf::Config &cfg);
     void    nodePos(NodeContainer const &nodes, uint16_t id, double &x, double &y, double &z);
+    void    nodeRxSens(NodeContainer const & nodes, uint16_t id, double & rxSens);
     int     cmd_node_exec(uint16_t id, char *buf, int buflen);
     int     cmd_node_position(uint16_t id, char *buf, int buflen);
     int     cmd_set_node_position(uint16_t id, char *buf, int buflen);

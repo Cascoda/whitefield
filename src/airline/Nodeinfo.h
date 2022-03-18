@@ -30,11 +30,13 @@ class Nodeinfo : public Macstats {
 private:
     string  nodeExec;
     string  nodePing;
+    double  nodeRxSens;
     string  capFile;
     double  X, Y, Z;
     uint8_t pos_set;
     uint8_t promis_mode;
     uint8_t ping_set;
+    uint8_t rx_sens_set;
 
     map<string, string, ci_less> keyval;
 
@@ -51,7 +53,7 @@ public:
     };
     string getNodePing(uint8_t &is_set, string def = std::string())
     {
-        is_set = pos_set;
+        is_set = ping_set;
         if (!is_set)
             return def;
 
@@ -70,6 +72,21 @@ public:
         }
 
         ping_set = 1;
+    };
+    void getNodeRxSens(uint8_t &is_set, double &rxSens)
+    {
+    	if(!is_set)
+    	{
+    		fprintf(stderr, "Default rxSensitivity=-106.58\n");
+    		rxSens = -106.58;
+    		return;
+    	}
+    	rxSens = nodeRxSens;
+    }
+    void setNodeRxSens(const double rxSens)
+    {
+        nodeRxSens = rxSens;
+    	rx_sens_set = 1;
     };
     string getNodeExecutable(void)
     {
@@ -112,6 +129,7 @@ public:
         pos_set     = 0;
         promis_mode = 0;
         ping_set = 0;
+        rx_sens_set = 0;
     };
 };
 } //namespace wf

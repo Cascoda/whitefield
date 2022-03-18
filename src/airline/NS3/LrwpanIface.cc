@@ -670,8 +670,6 @@ static int setAllNodesParam(NodeContainer & nodes)
     string loss_model = CFG("lossModel");
     string del_model = CFG("delayModel");
     bool macAdd = CFG_INT("macHeaderAdd", 1);
-    double rxSens = CFG_DOUBLE("rxSensitivity", 1);
-    fprintf(stderr, "rxSens = %lf\n", rxSens);
 
     LrWpanSpectrumValueHelper svh;
 
@@ -709,7 +707,6 @@ static int setAllNodesParam(NodeContainer & nodes)
             continue;
         }
 		dev->GetMac()->SetMacMaxFrameRetries(CFG_INT("macMaxRetry", 3));
-		dev->GetPhy()->SetRxSensitivity(rxSens);
 		dev->GetCsmaCa()->SetMacMaxCSMABackoffs(CFG_INT("macMaxCSMABackoffs", 1));
 
         /* Set Callbacks */

@@ -32,6 +32,7 @@
 #include <ns3/single-model-spectrum-channel.h>
 #include <ns3/mobility-module.h>
 #include <ns3/spectrum-value.h>
+#include <ns3/lr-wpan-module.h>
 
 #include "AirlineManager.h"
 #include "Airline.h"
@@ -464,6 +465,12 @@ void AirlineManager::nodePos(NodeContainer const & nodes,
 	mob.Install(nodes.Get(id));
 }
 
+void AirlineManager::nodeRxSens(NodeContainer const & nodes, uint16_t id, double & rxSens)
+{
+	Ptr<LrWpanNetDevice> dev = nodes.Get(id)->GetDevice(0)->GetObject<LrWpanNetDevice>();
+	dev->GetPhy()->SetRxSensitivity(rxSens);
+}
+
 void AirlineManager::setAirlineManagerPtr(void)
 {
 	ifaceSaveAirlinePtr(&g_ifctx, this);
@@ -473,6 +480,7 @@ void AirlineManager::setNodeSpecificParam(NodeContainer & nodes)
 {
 	uint8_t is_set=0;
 	double x, y, z;
+	double rxSens;
 	wf::Nodeinfo *ni=NULL;
     string txpower, deftxpower = CFG("txPower");
 
@@ -486,6 +494,10 @@ void AirlineManager::setNodeSpecificParam(NodeContainer & nodes)
 		if(is_set) {
     		nodePos(nodes, i, x, y, z);
         }
+		ni->getNodeRxSens(is_set, rxSens);
+		if(is_set) {
+			nodeRxSens(nodes, i, rxSens);
+		}
 		if(ni->getPromisMode()) {
             ifaceSetPromiscuous(&g_ifctx, i);
         }

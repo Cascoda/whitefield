@@ -200,6 +200,15 @@ int Config::setNodePing(const string ping_cmd, int beg, int end)
 	return SUCCESS;
 }
 
+int Config::setNodeRxSens(const string rxSens, int beg, int end)
+{
+	int i;
+	for(i=beg;i<=end;i++) {
+		nodeArray[i].setNodeRxSens(atof(rxSens.c_str()));
+	}
+	return SUCCESS;
+}
+
 int Config::setNodeSetCapFile(const string path, int beg, int end)
 {
 	int i;
@@ -291,6 +300,8 @@ int Config::setConfigurationFromFile(const char *fname)
 					set(key, value);
 				} else if(key == "nodePing") {
 					setNodePing(value, beg_range, end_range);
+				} else if(key == "rxSensitivity") {
+					setNodeRxSens(value, beg_range, end_range);
 				} else if(key == "captureFile") {
 					setNodeSetCapFile(value, beg_range, end_range);
 				} else if(key == "nodePosition") {
