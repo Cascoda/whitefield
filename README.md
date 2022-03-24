@@ -52,6 +52,7 @@ will be used as-is from these OSes.
 ```
 git clone https://github.com/Cascoda/whitefield
 cd whitefield
+git checkout ot-integration
 ./scripts/setup.sh #This may take a while...
 make
 ```
@@ -63,6 +64,7 @@ make
 ```
 git clone https://github.com/Cascoda/whitefield
 cd whitefield
+git checkout ot-integration
 vagrant up	# <- step takes time
 vagrant ssh
 ```
@@ -74,6 +76,7 @@ vagrant ssh
 ```
 git clone https://github.com/Cascoda/whitefield
 cd whitefield
+git checkout ot-integration
 IMG=focal64 vagrant up	# <- step takes time
 IMG=focal64 vagrant ssh
 ```
