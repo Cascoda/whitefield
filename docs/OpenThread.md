@@ -1,8 +1,8 @@
 ## OpenThread-specific Whitefield Guide
 
-**Setup Instructions**:
+**Build Instructions**:
 
-The setup instructions are identical to the ones laid out in the top-level README.md.
+The build instructions are identical to the ones laid out in the top-level README.md.
 
 **Execute Instructions**:
 
