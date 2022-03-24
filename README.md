@@ -50,7 +50,7 @@ will be used as-is from these OSes.
   <summary>Build Instructions (Native Install)</summary>
 
 ```
-git clone https://github.com/whitefield-framework/whitefield
+git clone https://github.com/Cascoda/whitefield
 cd whitefield
 ./scripts/setup.sh #This may take a while...
 make
@@ -61,7 +61,7 @@ make
   <summary>Build Instructions (Vagrant Install with Ubuntu 18.04)</summary>
 
 ```
-git clone https://github.com/whitefield-framework/whitefield
+git clone https://github.com/Cascoda/whitefield
 cd whitefield
 vagrant up	# <- step takes time
 vagrant ssh
@@ -72,7 +72,7 @@ vagrant ssh
   <summary>Build Instructions (Vagrant Install with Ubuntu 20.04)</summary>
 
 ```
-git clone https://github.com/whitefield-framework/whitefield
+git clone https://github.com/Cascoda/whitefield
 cd whitefield
 IMG=focal64 vagrant up	# <- step takes time
 IMG=focal64 vagrant ssh
